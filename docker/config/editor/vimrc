@@ -1,0 +1,18 @@
+set number
+set autoindent
+set nowrapscan
+set showmode
+set showmatch
+set ts=4
+set ht=4
+set viminfo='10,|"100,:20,%,n~/.viminfo
+
+ab inc include
+map Q :q!
+
+autocmd BufWritePre <buffer> :%s/\s\+$//e
+filetype indent on
+filetype plugin on
+syntax on
+
+au BufReadPost * if line("'\"") > 1 && line("'\"") <= line("$") | exe "normal! g'\"" | endif
