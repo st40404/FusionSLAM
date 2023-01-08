@@ -154,7 +154,9 @@ namespace GMapping {
     //the "core" algorithm
     void processTruePos(const OdometryReading& odometry);
     bool processScan(const RangeReading & reading, int adaptParticles=0);
-    
+    // use for PLCIP, to save the reading data and pose
+    bool mprocessScan(const RangeReading & reading, int adaptParticles=0);
+
     /**This method copies the state of the filter in a tree.
      The tree is represented through reversed pointers (each node has a pointer to its parent).
      The leafs are stored in a vector, whose size is the same as the number of particles.

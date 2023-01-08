@@ -111,7 +111,6 @@ class SlamGMapping
     ros::Time last_icp_time_;               // last stamp 
     ros::NodeHandle private_node_;          // ros private node
 
-
     GMapping::GridSlamProcessor* gsp_;
     GMapping::RangeSensor* gsp_laser_;
     // The angles in the laser, going from -x to x (adjustment is made to get the laser between
@@ -153,7 +152,7 @@ class SlamGMapping
     
 
 
-    void PublishMap(const sensor_msgs::LaserScan& scan);
+    void publishMap(const sensor_msgs::LaserScan& scan);
 
     // Parameters used by GMapping
     double maxRange_;
@@ -195,3 +194,4 @@ class SlamGMapping
     double transform_publish_period_;
     double tf_delay_;
 };
+

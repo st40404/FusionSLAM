@@ -489,8 +489,32 @@ void GridSlamProcessor::setMotionModelParameters
     m_readingCount++;
     return processed;
   }
-  
-  
+
+  // use for PLCIP, to save the reading data and pose
+   bool GridSlamProcessor::mprocessScan(const RangeReading & reading, int adaptParticles){
+    /**retireve the position from the reading, and compute the odometry*/
+    OrientedPoint relPose=reading.getPose();
+
+    RangeReading* reading_copy = 
+        new RangeReading(reading.size(),
+                          &(reading[0]),
+                          static_cast<const RangeSensor*>(reading.getSensor()),
+                          reading.getTime());
+    
+    for (ParticleVector::iterator it=m_particles.begin(); it!=m_particles.begin() + 1; it++){	
+      // cyr: not needed anymore, particles refer to the root in the beginning!
+      // std::cerr << "cccccccccccccccccccccccccccccccccccccccccccccc" << std::endl;
+      // std::cerr << relPose.x << " " << relPose.y << " " << relPose.theta << std::endl;
+      TNode* node=new	TNode(relPose, 0., it->node,  0);
+      //node->reading=0;
+      node->reading = reading_copy;
+      it->node=node;
+    }
+    return true;
+  }
+
+
+
   std::ofstream& GridSlamProcessor::outputStream(){
     return m_outputStream;
   }

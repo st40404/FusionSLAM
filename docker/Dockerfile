@@ -52,6 +52,9 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     # Install map server (show the trajectory in rviz)
     ros-melodic-map-server \
     ros-melodic-hector-slam \
+    # install udev and rosserial for tb3 driver
+    udev \
+    ros-melodic-rosserial-python \
     # add rule file for lidar permission
     && mkdir -p /etc/udev/rules.d \
     apt-get clean \
@@ -99,6 +102,10 @@ RUN bash ./run_setup_script.sh \
     && bash ./script/pip_setup.sh \
     && rm -rf /home/${USER}/.tmp
     # && bash ./script/ros_setup.sh \
+
+## give permission to the drivers of tb3
+# RUN udevadm control --reload-rules \
+#     && udevadm trigger
 
 ## Copy entrypoint
 COPY ./entrypoint.sh /entrypoint.sh

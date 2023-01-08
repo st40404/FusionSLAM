@@ -116,28 +116,38 @@ void ScanMatcher::computeActiveArea(ScanMatcherMap& map, const OrientedPoint& p,
 void ScanMatcher::computeActiveArea(ScanMatcherMap& map, const OrientedPoint& p, const double* readings){
 	if (m_activeAreaComputed)
 		return;
+	// change lidar pose from lidar frame to map frame
 	OrientedPoint lp=p;
 	lp.x+=cos(p.theta)*m_laserPose.x-sin(p.theta)*m_laserPose.y;
 	lp.y+=sin(p.theta)*m_laserPose.x+cos(p.theta)*m_laserPose.y;
 	lp.theta+=m_laserPose.theta;
 	IntPoint p0=map.world2map(lp);
 	
+	// set map range
 	Point min(map.map2world(0,0));
 	Point max(map.map2world(map.getMapSizeX()-1,map.getMapSizeY()-1));
 	       
+	// expand map range
 	if (lp.x<min.x) min.x=lp.x;
 	if (lp.y<min.y) min.y=lp.y;
 	if (lp.x>max.x) max.x=lp.x;
 	if (lp.y>max.y) max.y=lp.y;
 	
 	/*determine the size of the area*/
+	// expand map range by scan data
 	const double * angle=m_laserAngles+m_initialBeamsSkip;
 	for (const double* r=readings+m_initialBeamsSkip; r<readings+m_laserBeams; r++, angle++){
+		// delete invalid value
 		if (*r>m_laserMaxRange||*r==0.0||isnan(*r)) continue;
+		
 		double d=*r>m_usableRange?m_usableRange:*r;
+
+		// lidar hit point
 		Point phit=lp;
 		phit.x+=d*cos(lp.theta+*angle);
 		phit.y+=d*sin(lp.theta+*angle);
+
+		// expand map range by scan data
 		if (phit.x<min.x) min.x=phit.x;
 		if (phit.y<min.y) min.y=phit.y;
 		if (phit.x>max.x) max.x=phit.x;
@@ -146,11 +156,15 @@ void ScanMatcher::computeActiveArea(ScanMatcherMap& map, const OrientedPoint& p,
 	//min=min-Point(map.getDelta(),map.getDelta());
 	//max=max+Point(map.getDelta(),map.getDelta());
 	
+	// if map need to be expand
 	if ( !map.isInside(min)	|| !map.isInside(max)){
+		// get current map size
 		Point lmin(map.map2world(0,0));
 		Point lmax(map.map2world(map.getMapSizeX()-1,map.getMapSizeY()-1));
 		//cerr << "CURRENT MAP " << lmin.x << " " << lmin.y << " " << lmax.x << " " << lmax.y << endl;
 		//cerr << "BOUNDARY OVERRIDE " << min.x << " " << min.y << " " << max.x << " " << max.y << endl;
+
+		// update map size
 		min.x=( min.x >= lmin.x )? lmin.x: min.x-m_enlargeStep;
 		max.x=( max.x <= lmax.x )? lmax.x: max.x+m_enlargeStep;
 		min.y=( min.y >= lmin.y )? lmin.y: min.y-m_enlargeStep;
@@ -159,29 +173,39 @@ void ScanMatcher::computeActiveArea(ScanMatcherMap& map, const OrientedPoint& p,
 		//cerr << "RESIZE " << min.x << " " << min.y << " " << max.x << " " << max.y << endl;
 	}
 	
+	// active map area (map frame)
 	HierarchicalArray2D<PointAccumulator>::PointSet activeArea;
 	/*allocate the active area*/
 	angle=m_laserAngles+m_initialBeamsSkip;
 	for (const double* r=readings+m_initialBeamsSkip; r<readings+m_laserBeams; r++, angle++)
 		if (m_generateMap){
+			// delete error scan data
 			double d=*r;
 			if (d>m_laserMaxRange||d==0.0||isnan(d))
 				continue;
+
 			if (d>m_usableRange)
 				d=m_usableRange;
+			
+			// p0 : start of lidar line
+			// p1 : end of lidar line
 			Point phit=lp+Point(d*cos(lp.theta+*angle),d*sin(lp.theta+*angle));
 			IntPoint p0=map.world2map(lp);
 			IntPoint p1=map.world2map(phit);
 			
+			// compute the path of lidar line
 			//IntPoint linePoints[20000] ;
 			GridLineTraversalLine line;
 			line.points=m_linePoints;
 			GridLineTraversal::gridLine(p0, p1, &line);
+
+			// update map, and compute the coordinate of lidar line path
 			for (int i=0; i<line.num_points-1; i++){
 				assert(map.isInside(m_linePoints[i]));
 				activeArea.insert(map.storage().patchIndexes(m_linePoints[i]));
 				assert(m_linePoints[i].x>=0 && m_linePoints[i].y>=0);
 			}
+
 			if (d<m_usableRange){
 				IntPoint cp=map.storage().patchIndexes(p1);
 				assert(cp.x>=0 && cp.y>=0);

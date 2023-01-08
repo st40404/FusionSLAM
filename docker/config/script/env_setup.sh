@@ -18,7 +18,13 @@ function ENVConfig_fn() {
     echo "export TURTLEBOT3_MODEL=waffle" >>/home/$USER/.${SHELL}rc
 
     ## env: lidar (permission)
+    ##echo "KERNEL=="ttyACM[0-9]*", ACTION=="add", ATTRS{idVendor}=="15d1", MODE="0666", GROUP="dialout", SYMLINK+="sensors/hokuyo"" >> /etc/udev/rules.d/99-hokuyo.rules
     echo "KERNEL=="ttyACM[0-9]*", ACTION=="add", ATTRS{idVendor}=="15d1", MODE="0666", GROUP="dialout", SYMLINK+="sensors/hokuyo"" >> /etc/udev/rules.d/99-hokuyo.rules
+    echo "ATTRS{idVendor}=="0483" ATTRS{idProduct}=="5740", ENV{ID_MM_DEVICE_IGNORE}="1", MODE:="0666"" >> /etc/udev/rules.d/99-hokuyo.rules
+    echo "ATTRS{idVendor}=="0483" ATTRS{idProduct}=="df11", MODE:="0666"" >> /etc/udev/rules.d/99-hokuyo.rules
+    echo "ATTRS{idVendor}=="fff1" ATTRS{idProduct}=="ff48", ENV{ID_MM_DEVICE_IGNORE}="1", MODE:="0666"" >> /etc/udev/rules.d/99-hokuyo.rules
+    echo "ATTRS{idVendor}=="10c4" ATTRS{idProduct}=="ea60", ENV{ID_MM_DEVICE_IGNORE}="1", MODE:="0666"" >> /etc/udev/rules.d/99-hokuyo.rules
+
 }
 
 #################################### MAIN ####################################
