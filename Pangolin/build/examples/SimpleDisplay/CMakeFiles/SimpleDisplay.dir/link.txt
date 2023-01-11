@@ -1,0 +1,1 @@
+/usr/bin/c++  -std=c++0x -Wall  -O3 -DNDEBUG  -rdynamic CMakeFiles/SimpleDisplay.dir/main.cpp.o  -o SimpleDisplay -Wl,-rpath,/home/ron/work/src/Pangolin/build/src ../../src/libpangolin.so -lGL -lGLU -lGLEW -lX11 -lpython3.6m -ldc1394 -lOpenNI -lOpenNI2 -lpng -lz -ljpeg -ltiff -lIlmImf 

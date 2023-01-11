@@ -58,61 +58,6 @@ void ScanMatcher::invalidateActiveArea(){
 	m_activeAreaComputed=false;
 }
 
-/*
-void ScanMatcher::computeActiveArea(ScanMatcherMap& map, const OrientedPoint& p, const double* readings){
-	if (m_activeAreaComputed)
-		return;
-	HierarchicalArray2D<PointAccumulator>::PointSet activeArea;
-	OrientedPoint lp=p;
-	lp.x+=cos(p.theta)*m_laserPose.x-sin(p.theta)*m_laserPose.y;
-	lp.y+=sin(p.theta)*m_laserPose.x+cos(p.theta)*m_laserPose.y;
-	lp.theta+=m_laserPose.theta;
-	IntPoint p0=map.world2map(lp);
-	const double * angle=m_laserAngles;
-	for (const double* r=readings; r<readings+m_laserBeams; r++, angle++)
-		if (m_generateMap){
-			double d=*r;
-			if (d>m_laserMaxRange)
-				continue;
-			if (d>m_usableRange)
-				d=m_usableRange;
-			
-			Point phit=lp+Point(d*cos(lp.theta+*angle),d*sin(lp.theta+*angle));
-			IntPoint p1=map.world2map(phit);
-			
-			d+=map.getDelta();
-			//Point phit2=lp+Point(d*cos(lp.theta+*angle),d*sin(lp.theta+*angle));
-			//IntPoint p2=map.world2map(phit2);
-			IntPoint linePoints[20000] ;
-			GridLineTraversalLine line;
-			line.points=linePoints;
-			//GridLineTraversal::gridLine(p0, p2, &line);
-			GridLineTraversal::gridLine(p0, p1, &line);
-			for (int i=0; i<line.num_points-1; i++){
-				activeArea.insert(map.storage().patchIndexes(linePoints[i]));
-			}
-			if (d<=m_usableRange){
-				activeArea.insert(map.storage().patchIndexes(p1));
-				//activeArea.insert(map.storage().patchIndexes(p2));
-			}
-		} else {
-			if (*r>m_laserMaxRange||*r>m_usableRange) continue;
-			Point phit=lp;
-			phit.x+=*r*cos(lp.theta+*angle);
-			phit.y+=*r*sin(lp.theta+*angle);
-			IntPoint p1=map.world2map(phit);
-			assert(p1.x>=0 && p1.y>=0);
-			IntPoint cp=map.storage().patchIndexes(p1);
-			assert(cp.x>=0 && cp.y>=0);
-			activeArea.insert(cp);
-			
-		}
-	//this allocates the unallocated cells in the active area of the map
-	//cout << "activeArea::size() " << activeArea.size() << endl;
-	map.storage().setActiveArea(activeArea, true);
-	m_activeAreaComputed=true;
-}
-*/
 void ScanMatcher::computeActiveArea(ScanMatcherMap& map, const OrientedPoint& p, const double* readings){
 	if (m_activeAreaComputed)
 		return;
@@ -224,14 +169,6 @@ void ScanMatcher::computeActiveArea(ScanMatcherMap& map, const OrientedPoint& p,
 		}
 	
 	//this allocates the unallocated cells in the active area of the map
-	//cout << "activeArea::size() " << activeArea.size() << endl;
-/*	
-	cerr << "ActiveArea=";
-	for (HierarchicalArray2D<PointAccumulator>::PointSet::const_iterator it=activeArea.begin(); it!= activeArea.end(); it++){
-		cerr << "(" << it->x <<"," << it->y << ") ";
-	}
-	cerr << endl;
-*/		
 	map.storage().setActiveArea(activeArea, true);
 	m_activeAreaComputed=true;
 }

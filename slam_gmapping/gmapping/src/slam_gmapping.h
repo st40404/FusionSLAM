@@ -80,7 +80,6 @@ class SlamGMapping
     sm_result output_;
     LDP prev_ldp_scan_;
 
-
     // initialize PLICP parameters
     void InitICPParams();
     // save the lidar angle, prevent to compute angle every time

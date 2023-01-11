@@ -55,6 +55,14 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     # install udev and rosserial for tb3 driver
     udev \
     ros-melodic-rosserial-python \
+    # install ORBSLAM2 dependency
+    gcc g++ \
+    libglew-dev \
+    cmake \
+    libboost-dev libboost-thread-dev libboost-filesystem-dev \
+    libpython2.7-dev \
+    libegl1-mesa-dev libwayland-dev libxkbcommon-dev wayland-protocols \
+    libeigen3-dev libblas-dev liblapack-dev \
     # add rule file for lidar permission
     && mkdir -p /etc/udev/rules.d \
     apt-get clean \
