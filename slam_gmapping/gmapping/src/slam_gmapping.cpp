@@ -695,7 +695,7 @@ void
 SlamGMapping::laserCallback(const sensor_msgs::LaserScan::ConstPtr& scan)
 {
   // change method : 0 = gmapping, 1 = PLICP
-  int mymethod = 1;
+  int mymethod = 0;
   std::chrono::steady_clock::time_point start_time = std::chrono::steady_clock::now();
 
   laser_count_++;
