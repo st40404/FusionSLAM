@@ -1,0 +1,25 @@
+
+<launch>
+
+    <!-- open launch: realsense driver -->
+    <include file="$(find realsense2_camera)/launch/rs_rgbd.launch">  </include>
+    <!-- <include file="$(find realsense2_camera)/launch/rs_dual_cam.launch">  </include> -->
+
+
+    <arg
+    name="path_to_vocabulary"
+    default="$(find ORB_SLAM2)/data/ORBvoc.txt"
+    />
+
+    <arg
+    name="path_to_settings"
+    default="$(find ORB_SLAM2)/data/TUM3.yaml"
+    />
+
+    <!-- open node: orb_slam -->
+    <node pkg="ORB_SLAM2"
+        name="RGBD"
+        type="RGBD"
+        args= "$(arg path_to_vocabulary) $(arg path_to_settings)" />
+
+</launch>

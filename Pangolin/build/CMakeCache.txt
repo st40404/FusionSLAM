@@ -14,24 +14,6 @@
 # EXTERNAL cache entries
 ########################
 
-//Path to a file.
-AVCODEC_INCLUDE_DIR:PATH=/usr/include/x86_64-linux-gnu
-
-//Path to a library.
-AVCODEC_LIBRARY:FILEPATH=/usr/lib/x86_64-linux-gnu/libavcodec.so
-
-//Path to a file.
-AVFORMAT_INCLUDE_DIR:PATH=/usr/include/x86_64-linux-gnu
-
-//Path to a library.
-AVFORMAT_LIBRARY:FILEPATH=/usr/lib/x86_64-linux-gnu/libavformat.so
-
-//Path to a file.
-AVUTIL_INCLUDE_DIR:PATH=/usr/include/x86_64-linux-gnu
-
-//Path to a library.
-AVUTIL_LIBRARY:FILEPATH=/usr/lib/x86_64-linux-gnu/libavutil.so
-
 //Build Examples
 BUILD_EXAMPLES:BOOL=ON
 
@@ -383,12 +365,6 @@ Pangolin_BINARY_DIR:STATIC=/home/ron/work/src/Pangolin/build
 Pangolin_SOURCE_DIR:STATIC=/home/ron/work/src/Pangolin
 
 //Path to a file.
-SWSCALE_INCLUDE_DIR:PATH=/usr/include/x86_64-linux-gnu
-
-//Path to a library.
-SWSCALE_LIBRARY:FILEPATH=/usr/lib/x86_64-linux-gnu/libswscale.so
-
-//Path to a file.
 TIFF_INCLUDE_DIR:PATH=/usr/include/x86_64-linux-gnu
 
 //Path to a library.
@@ -575,10 +551,6 @@ DOXYGEN_EXECUTABLE-ADVANCED:INTERNAL=1
 EIGEN3_INCLUDE_DIR-ADVANCED:INTERNAL=1
 //Details about finding PkgConfig
 FIND_PACKAGE_MESSAGE_DETAILS_PkgConfig:INTERNAL=[/usr/bin/pkg-config][v0.29.1()]
-//Test HAVE_FFMPEG_AVFORMAT_ALLOC_OUTPUT_CONTEXT2
-HAVE_FFMPEG_AVFORMAT_ALLOC_OUTPUT_CONTEXT2:INTERNAL=1
-//Test HAVE_FFMPEG_MAX_ANALYZE_DURATION2
-HAVE_FFMPEG_MAX_ANALYZE_DURATION2:INTERNAL=
 //ADVANCED property for variable: JPEG_INCLUDE_DIR
 JPEG_INCLUDE_DIR-ADVANCED:INTERNAL=1
 //ADVANCED property for variable: JPEG_LIBRARY
