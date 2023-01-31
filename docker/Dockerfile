@@ -63,6 +63,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     libpython2.7-dev \
     libegl1-mesa-dev libwayland-dev libxkbcommon-dev wayland-protocols \
     libeigen3-dev libblas-dev liblapack-dev \
+    ros-melodic-pcl-conversions ros-melodic-pcl-ros ros-melodic-perception-pcl ros-melodic-perception \
     # add rule file for lidar permission
     && mkdir -p /etc/udev/rules.d \
     apt-get clean \

@@ -140,11 +140,12 @@ void Map::Save ( const string& filename )
     //Number of MapPoints
     unsigned long int nMapPoints = mspMapPoints.size();
     f.write((char*)&nMapPoints, sizeof(nMapPoints) );
+    
     //Save MapPoint sequentially
     for ( auto mp: mspMapPoints ){
         //Save MapPoint
         SaveMapPoint( f, mp );
-        // cerr << "Map.cc :: Saving map point number: " << mp->mnId << endl;
+        //  cerr << "Map.cc :: Saving map point number: " << mp->mnId << endl;
     }
 
     //Print The number of MapPoints

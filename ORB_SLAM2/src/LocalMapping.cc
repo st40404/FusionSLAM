@@ -362,7 +362,7 @@ void LocalMapping::CreateNewMapPoints()
             }
             else if(bStereo1 && cosParallaxStereo1<cosParallaxStereo2)
             {
-                x3D = mpCurrentKeyFrame->UnprojectStereo(idx1);                
+                x3D = mpCurrentKeyFrame->UnprojectStereo(idx1);
             }
             else if(bStereo2 && cosParallaxStereo2<cosParallaxStereo1)
             {
@@ -448,15 +448,13 @@ void LocalMapping::CreateNewMapPoints()
             const float ratioDist = dist2/dist1;
             const float ratioOctave = mpCurrentKeyFrame->mvScaleFactors[kp1.octave]/pKF2->mvScaleFactors[kp2.octave];
 
-            /*if(fabs(ratioDist-ratioOctave)>ratioFactor)
-                continue;*/
             if(ratioDist*ratioFactor<ratioOctave || ratioDist>ratioOctave*ratioFactor)
                 continue;
 
             // Triangulation is succesfull
             MapPoint* pMP = new MapPoint(x3D,mpCurrentKeyFrame,mpMap);
 
-            pMP->AddObservation(mpCurrentKeyFrame,idx1);            
+            pMP->AddObservation(mpCurrentKeyFrame,idx1);
             pMP->AddObservation(pKF2,idx2);
 
             mpCurrentKeyFrame->AddMapPoint(pMP,idx1);
@@ -469,9 +467,11 @@ void LocalMapping::CreateNewMapPoints()
             mpMap->AddMapPoint(pMP);
             mlpRecentAddedMapPoints.push_back(pMP);
 
+
             nnew++;
         }
     }
+
 }
 
 void LocalMapping::SearchInNeighbors()
@@ -788,7 +788,11 @@ bool LocalMapping::isFinished()
     return mbFinished;
 }
 
-
+vector<MapPoint*> LocalMapping::GetmvpMapPoints()
+{
+    // unique_lock<mutex> lock(mMutexFinish);
+    return mpCurrentKeyFrame->GetMapPointMatches();
+}
 
 //-------------------------------------------------------------------------------------------
 //-------------------------------------------------------------------------------------------

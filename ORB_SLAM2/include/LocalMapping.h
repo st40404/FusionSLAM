@@ -72,6 +72,9 @@ public:
         return mlNewKeyFrames.size();
     }
 
+    vector<MapPoint*> GetmvpMapPoints();
+
+
 protected:
 
     bool CheckNewKeyFrames();
@@ -110,7 +113,7 @@ protected:
 
     std::list<MapPoint*> mlpRecentAddedMapPoints;
 
-    std::mutex mMutexNewKFs;
+    std::mutex mMutexNewKFs; 
 
     bool mbAbortBA;
 

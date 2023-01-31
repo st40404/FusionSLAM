@@ -44,20 +44,20 @@ System::System(const string &strVocFile, const string &strSettingsFile, const eS
         mbDeactivateLocalizationMode(false)
 {
     // Output welcome message
-    cout << endl <<
+    cerr << endl <<
     "ORB-SLAM2 Copyright (C) 2014-2016 Raul Mur-Artal, University of Zaragoza." << endl <<
     "This program comes with ABSOLUTELY NO WARRANTY;" << endl  <<
     "This is free software, and you are welcome to redistribute it" << endl <<
     "under certain conditions. See LICENSE.txt." << endl << endl;
 
-    cout << "Input sensor was set to: ";
+    cerr << "Input sensor was set to: ";
 
     if(mSensor==MONOCULAR)
-        cout << "Monocular" << endl;
+        cerr << "Monocular" << endl;
     else if(mSensor==STEREO)
-        cout << "Stereo" << endl;
+        cerr << "Stereo" << endl;
     else if(mSensor==RGBD)
-        cout << "RGB-D" << endl;
+        cerr << "RGB-D" << endl;
 
     //Check settings file
     cv::FileStorage fsSettings(strSettingsFile.c_str(), cv::FileStorage::READ);
@@ -69,17 +69,17 @@ System::System(const string &strVocFile, const string &strSettingsFile, const eS
 
 
     //Load ORB Vocabulary
-    cout << endl << "Loading ORB Vocabulary. This could take a while..." << endl;
+    cerr << endl << "Loading ORB Vocabulary. This could take a while..." << endl;
 
     mpVocabulary = new ORBVocabulary();
     bool bVocLoad = false; // chose loading method based on file extension
 
     if (has_suffix(strVocFile, ".bin")){
-        cout << "loadFromBinaryFile......" << endl;
+        cerr << "loadFromBinaryFile......" << endl;
         bVocLoad = mpVocabulary->loadFromBinaryFile(strVocFile);
     }
     else if(has_suffix(strVocFile, ".txt")){
-        cout << "loadFromTextFile......" << endl;
+        cerr << "loadFromTextFile......" << endl;
         bVocLoad = mpVocabulary->loadFromTextFile(strVocFile);
     }
     else{
@@ -93,7 +93,7 @@ System::System(const string &strVocFile, const string &strSettingsFile, const eS
         cerr << "Falied to open at: " << strVocFile << endl;
         exit(-1);
     }
-    cout << "Vocabulary loaded!" << endl << endl;
+    cerr << "Vocabulary loaded!" << endl << endl;
 
     //Create KeyFrame Database
     mpKeyFrameDatabase = new KeyFrameDatabase(*mpVocabulary);
@@ -122,7 +122,7 @@ System::System(const string &strVocFile, const string &strSettingsFile, const eS
     if(bUseViewer)
     {
         char SaveImg;
-        cout << "Do you want to save images from the viewer?(y/n)" << endl;
+        cerr << "Do you want to save images from the viewer?(y/n)" << endl;
         cin >> SaveImg;
         
         mpViewer = new Viewer(this, mpFrameDrawer,mpMapDrawer,mpTracker,strSettingsFile);
@@ -131,13 +131,13 @@ System::System(const string &strVocFile, const string &strSettingsFile, const eS
         
         if(SaveImg == 'Y' || SaveImg == 'y'){  
             mpViewer->mbSaveImg = true;
-            cout << "I'll save these images under the directiry of: '/$(HOME)/Pictures/ORB-SLAM2/'  or  '/$(HOME)/Pictures/ORB-SLAM2-IMU/'" << endl;
+            cerr << "I'll save these images under the directiry of: '/$(HOME)/Pictures/ORB-SLAM2/'  or  '/$(HOME)/Pictures/ORB-SLAM2-IMU/'" << endl;
         }
     }
 
     // Choose to use pure localization mode
     char IsPureLocalization;
-    cout << "Do you want to run pure localization?(y/n)" << endl;
+    cerr << "Do you want to run pure localization?(y/n)" << endl;
     cin >> IsPureLocalization;
     if(IsPureLocalization == 'Y' || IsPureLocalization == 'y'){  
         ActivateLocalizationMode();
@@ -148,15 +148,16 @@ System::System(const string &strVocFile, const string &strSettingsFile, const eS
 
     //get the current absoulte path  
     std::string cwd = getcwd(NULL, 0);
-    cout << "The current dir is : " << cwd << endl; 
-    string strPathSystemSetting = cwd + "/" + strSettingsFile.c_str();
+    cerr << "The current dir is : " << cwd << endl; 
+    // string strPathSystemSetting = cwd + "/" + strSettingsFile.c_str();
+    string strPathSystemSetting = strSettingsFile.c_str();
 
-    cout << "Your setting file path is : " << strPathSystemSetting << endl; 
+    cerr << "Your setting file path is : " << strPathSystemSetting << endl; 
     
     string strPathMap = cwd + "/MapPointandKeyFrame.bin";
-    cout << "Your map file path would be : " << strPathMap << endl; 
+    cerr << "Your map file path would be : " << strPathMap << endl; 
 
-    cout << "Do you want to load the map?(y/n)" << endl;  
+    cerr << "Do you want to load the map?(y/n)" << endl;  
     cin >> IsLoadMap;
     SystemSetting *mySystemSetting = new SystemSetting(mpVocabulary);  
     mySystemSetting->LoadSystemSetting(strPathSystemSetting);
@@ -436,17 +437,17 @@ void System::Shutdown()
     }
 
     // Wait until all thread have effectively stopped
-    cout << "System trying to shut down......(This may take long when map is large!)" << endl;
+    cerr << "System trying to shut down......(This may take long when map is large!)" << endl;
     while(!mpLocalMapper->isFinished() || !mpLoopCloser->isFinished() )//|| mpLoopCloser->isRunningGBA())
     {
         if(!mpLocalMapper->isFinished()){
-            cout<< "mpLocalMapper is not finished." <<endl;
+            cerr<< "mpLocalMapper is not finished." <<endl;
         }
         if(!mpLoopCloser->isFinished()){
-            cout<< "mpLoopCloser is not finished." <<endl;
+            cerr<< "mpLoopCloser is not finished." <<endl;
         }
         if(mpLoopCloser->isRunningGBA()){
-            cout<< "mpLoopCloser is still running. Try to RequestFinish" <<endl;
+            cerr<< "mpLoopCloser is still running. Try to RequestFinish" <<endl;
             // Shall I add RunGlobalBundleAdjustment?
             // mpLoopCloser->RequestFinish();
         }
@@ -454,16 +455,16 @@ void System::Shutdown()
     }
 
     if(mpViewer){
-        cout << "System::Shutdown() : pangolin::BindToContext" << endl;
+        cerr << "System::Shutdown() : pangolin::BindToContext" << endl;
         pangolin::BindToContext("ORB-SLAM2: Map Viewer");
     }
-    cout << "System shut down." << endl;
+    cerr << "System shut down." << endl;
 
 }
 
 void System::SaveTrajectoryTUM(const string &filename)
 {
-    cout << endl << "Saving camera trajectory to " << filename << " ..." << endl;
+    cerr << endl << "Saving camera trajectory to " << filename << " ..." << endl;
     if(mSensor==MONOCULAR)
     {
         cerr << "ERROR: SaveTrajectoryTUM cannot be used for monocular." << endl;
@@ -518,13 +519,13 @@ void System::SaveTrajectoryTUM(const string &filename)
         f << setprecision(6) << *lT << " " <<  setprecision(9) << twc.at<float>(0) << " " << twc.at<float>(1) << " " << twc.at<float>(2) << " " << q[0] << " " << q[1] << " " << q[2] << " " << q[3] << endl;
     }
     f.close();
-    cout << endl << "trajectory saved!" << endl;
+    cerr << endl << "trajectory saved!" << endl;
 }
 
 
 void System::SaveKeyFrameTrajectoryTUM(const string &filename)
 {
-    cout << endl << "Saving keyframe trajectory to " << filename << " ..." << endl;
+    cerr << endl << "Saving keyframe trajectory to " << filename << " ..." << endl;
 
     vector<KeyFrame*> vpKFs = mpMap->GetAllKeyFrames();
     sort(vpKFs.begin(),vpKFs.end(),KeyFrame::lId);
@@ -555,12 +556,12 @@ void System::SaveKeyFrameTrajectoryTUM(const string &filename)
     }
 
     f.close();
-    cout << endl << "trajectory saved!" << endl;
+    cerr << endl << "trajectory saved!" << endl;
 }
 
 void System::SaveTrajectoryKITTI(const string &filename)
 {
-    cout << endl << "Saving camera trajectory to " << filename << " ..." << endl;
+    cerr << endl << "Saving camera trajectory to " << filename << " ..." << endl;
     if(mSensor==MONOCULAR)
     {
         cerr << "ERROR: SaveTrajectoryKITTI cannot be used for monocular." << endl;
@@ -594,7 +595,7 @@ void System::SaveTrajectoryKITTI(const string &filename)
 
         while(pKF->isBad())
         {
-          //  cout << "bad parent" << endl;
+          //  cerr << "bad parent" << endl;
             Trw = Trw*pKF->mTcp;
             pKF = pKF->GetParent();
         }
@@ -610,7 +611,7 @@ void System::SaveTrajectoryKITTI(const string &filename)
              Rwc.at<float>(2,0) << " " << Rwc.at<float>(2,1)  << " " << Rwc.at<float>(2,2) << " "  << twc.at<float>(2) << endl;
     }
     f.close();
-    cout << endl << "trajectory saved!" << endl;
+    cerr << endl << "trajectory saved!" << endl;
 }
 
 void System::SaveMap(const string &filename)  
@@ -653,5 +654,26 @@ vector<cv::KeyPoint> System::GetTrackedKeyPointsUn()
     unique_lock<mutex> lock(mMutexState);
     return mTrackedKeyPointsUn;
 }
+
+vector<cv::KeyPoint> System::GetmpTracker()
+{
+    unique_lock<mutex> lock(mMutexState);
+    return mpTracker->mCurrentFrame.mvKeys;
+}
+
+
+vector<float> System::GetmvDepth()
+{
+    unique_lock<mutex> lock(mMutexState);
+    return mpTracker->mCurrentFrame.mvDepth;
+}
+
+cv::Mat System::Getpose()
+{
+    unique_lock<mutex> lock(mMutexState);
+    return mpTracker->mCurrentFrame.mpReferenceKF->GetPose();
+}
+
+
 
 } //namespace ORB_SLAM

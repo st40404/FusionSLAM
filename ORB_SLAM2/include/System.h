@@ -21,6 +21,7 @@
 
 #ifndef SYSTEM_H
 #define SYSTEM_H
+#include <unistd.h>
 
 #include<string>
 #include<thread>
@@ -35,7 +36,6 @@
 #include "KeyFrameDatabase.h"
 #include "ORBVocabulary.h"
 #include "Viewer.h"
-#include <unistd.h> 
 
 namespace ORB_SLAM2
 {
@@ -56,6 +56,7 @@ public:
         STEREO=1,
         RGBD=2
     };
+
 
 public:
 
@@ -131,6 +132,11 @@ public:
     void SetSaveImageFlag();
     void SetViewerIMUFlagTrue();
     void SetViewerIMUFlagFalse();
+
+    // get mCurrentFrame data
+    vector<cv::KeyPoint> GetmpTracker();
+    vector<float> GetmvDepth();
+    cv::Mat Getpose();
 
 private:
 

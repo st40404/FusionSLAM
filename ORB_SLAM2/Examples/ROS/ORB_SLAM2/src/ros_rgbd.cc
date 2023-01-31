@@ -34,17 +34,58 @@
 
 #include"../../../include/System.h"
 
+
+// add pcl publish header
+#include <pcl_ros/point_cloud.h>
+#include <pcl/point_types.h>
+#include <pcl_conversions/pcl_conversions.h>
+
+typedef pcl::PointCloud<pcl::PointXYZ> PointCloud;
+
+// add Camera pose publish type header
+#include "std_msgs/MultiArrayDimension.h"
+#include "std_msgs/Float64MultiArray.h"
+
+#include <geometry_msgs/Twist.h>
+#include <math.h>   
 using namespace std;
+#define PI 3.14159265
+
 
 class ImageGrabber
 {
 public:
+
     ImageGrabber(ORB_SLAM2::System* pSLAM):mpSLAM(pSLAM){}
 
     void GrabRGBD(const sensor_msgs::ImageConstPtr& msgRGB,const sensor_msgs::ImageConstPtr& msgD);
 
+    // define Pointcloud topic
+    ros::Publisher KeyFrame_pub;
+    // define camera Pose topic
+    ros::Publisher CamPose_pub;
+
+    // define CurrentFrame to get 2D(x,y) data from tracker
+    vector<cv::KeyPoint> CurrentFrame;
+    // define CurrentDepth to get depth(z) from tracker
+    vector<float> CurrentDepth;
+    // define CurrentPose to get camera pose from keyfram
+    cv::Mat CurrentPose;
+    // define pose to get save camera pose
+    std_msgs::Float64MultiArray pose;
+    // set pose varity setting
+    void SetPose();
+
+    // add callback function to get current frame from Tracker, and publish
+    void callback();
+    // add PublishPointcloud function to publish point cloud
+    void PublishPointcloud();
+    // add PublishPose function to publish camera pose
+    void PublishCamPose();
+
     ORB_SLAM2::System* mpSLAM;
 };
+
 
 int main(int argc, char **argv)
 {
@@ -56,20 +97,33 @@ int main(int argc, char **argv)
         cerr << endl << "Usage: rosrun ORB_SLAM2 RGBD path_to_vocabulary path_to_settings" << endl;        
         ros::shutdown();
         return 1;
-    }    
+    }
 
     // Create SLAM system. It initializes all system threads and gets ready to process frames.
     ORB_SLAM2::System SLAM(argv[1],argv[2],ORB_SLAM2::System::RGBD,true);
 
     ImageGrabber igb(&SLAM);
 
+
     ros::NodeHandle nh;
 
+    // define /Ron/KeyFrame topic
+    igb.KeyFrame_pub = nh.advertise<PointCloud>("/Ron/KeyFrame", 1);
+    // define /Ron/CamPose topic
+    // igb.CamPose_pub = nh.advertise<std_msgs::Float64MultiArray>("/Ron/CamPose", 1);
+    igb.CamPose_pub = nh.advertise<geometry_msgs::Twist>("/mobile_position", 1);
+
+    
+    // set publish message of member pose
+    igb.SetPose();
+
+    // message_filters::Subscriber<sensor_msgs::Image> rgb_sub(nh, "/cam_AGV/color/image_raw", 1);
+    // message_filters::Subscriber<sensor_msgs::Image> depth_sub(nh, "cam_AGV/aligned_depth_to_color/image_raw", 1);
     message_filters::Subscriber<sensor_msgs::Image> rgb_sub(nh, "/camera/rgb/image_raw", 1);
     message_filters::Subscriber<sensor_msgs::Image> depth_sub(nh, "camera/depth_registered/image_raw", 1);
     typedef message_filters::sync_policies::ApproximateTime<sensor_msgs::Image, sensor_msgs::Image> sync_pol;
     message_filters::Synchronizer<sync_pol> sync(sync_pol(10), rgb_sub,depth_sub);
-    sync.registerCallback(boost::bind(&ImageGrabber::GrabRGBD,&igb,_1,_2));
+    sync.registerCallback(boost::bind(&ImageGrabber::GrabRGBD, &igb, _1, _2));
 
     ros::spin();
 
@@ -77,17 +131,136 @@ int main(int argc, char **argv)
     SLAM.Shutdown();
 
     // Save camera trajectory
-    SLAM.SaveKeyFrameTrajectoryTUM("KeyFrameTrajectory.txt");
+    SLAM.SaveTrajectoryTUM("CameraTrajectory.txt");
+    SLAM.SaveKeyFrameTrajectoryTUM("KeyFrameTrajectory.txt");  
+
+    // Save customized Map 
+    SLAM.SaveMap("MapPointandKeyFrame.bin");
 
     ros::shutdown();
 
     return 0;
 }
 
+
+// get current data from tracker
+void ImageGrabber::callback()
+{
+    CurrentFrame = mpSLAM->GetmpTracker();
+    CurrentDepth = mpSLAM->GetmvDepth();
+    CurrentPose = mpSLAM->Getpose();
+}
+
+// publish point clouds
+void ImageGrabber::PublishPointcloud()
+{
+    pcl::PointCloud<pcl::PointXYZ> cloud;
+    cloud.header.frame_id = "camera_aligned_depth_to_color_frame";
+    cloud.points.resize (CurrentFrame.size());
+    for (size_t i=0; i<CurrentFrame.size(); i++)
+    {
+        cloud.points[i].x = CurrentFrame[i].pt.x / 100.0;
+        cloud.points[i].y = CurrentFrame[i].pt.y / 100.0 ;
+        cloud.points[i].z = CurrentDepth[i];
+    }
+
+    KeyFrame_pub.publish(cloud);
+}
+float numx = 0.0;
+float numy = 0.0;
+float numz = 0.0;
+
+// publish camera pose
+void ImageGrabber::PublishCamPose()
+{
+    // std::vector<double> vec(CurrentPose.cols*CurrentPose.rows, 0);
+    float* matData = (float*)CurrentPose.data;
+
+    // for (int i=0; i<CurrentPose.rows; i++)
+    //     for (int j=0; j<CurrentPose.cols; j++)
+    //         vec[i*CurrentPose.cols + j] = matData[i*CurrentPose.cols + j];
+
+   
+    cv::Mat TransP = cv::Mat::eye(4,4,CV_32F);
+    TransP.at<float>(0, 3) = -2.47;
+    TransP.at<float>(1, 3) = -3.72;
+
+    cv::Mat TransX = cv::Mat::eye(4,4,CV_32F);
+    cv::Mat TransZ = cv::Mat::eye(4,4,CV_32F);
+
+    int param = 180;
+    TransX.at<float>(1, 2) = cos ( param * PI / 180.0 );
+    TransX.at<float>(1, 3) = -1*sin ( param * PI / 180.0 );
+    TransX.at<float>(2, 2) = sin ( param * PI / 180.0 );
+    TransX.at<float>(2, 3) = cos ( param * PI / 180.0 );
+
+    int rotate = 180;
+    TransZ.at<float>(0, 0) = cos ( rotate * PI / 180.0 );
+    TransZ.at<float>(0, 1) = -1*sin ( rotate * PI / 180.0 );
+    TransZ.at<float>(1, 0) = sin ( rotate * PI / 180.0 );
+    TransZ.at<float>(1, 1) = cos ( rotate * PI / 180.0 );
+
+
+    TransP = TransX*TransZ*TransP*CurrentPose;
+    float angularZ = atan( TransP.at<float>(0, 2)/TransP.at<float>(1, 2) ) * 180.0 / PI;
+
+    if ( TransP.at<float>(0, 2) > 0 &&  TransP.at<float>(1, 2) < 0 )
+        angularZ = angularZ ;       
+
+    else if ( TransP.at<float>(0, 2) > 0 &&  TransP.at<float>(1, 2) > 0 )
+        angularZ = 180 + angularZ ;
+
+    else if ( TransP.at<float>(0, 2) < 0 &&  TransP.at<float>(1, 2) < 0)
+        angularZ = angularZ ;
+
+    else if ( TransP.at<float>(0, 2) < 0 &&  TransP.at<float>(1, 2) > 0 )
+        angularZ = 180 + angularZ ;
+
+    // std::cerr << angularZ << "    " << TransP.at<float>(0, 2)* 180.0 / PI << "    " << TransP.at<float>(1, 2)* 180.0 / PI << "    " << atan( TransP.at<float>(0, 2)/TransP.at<float>(1, 2) ) * 180.0 / PI<< std::endl;
+    
+    angularZ = 90 + angularZ;
+
+    if ( angularZ > 180 )
+        angularZ -= 360;
+    else if ( angularZ < -180 )
+        angularZ += 360;
+
+    std::cerr << angularZ << std::endl;
+
+    
+    geometry_msgs::Twist msg;
+    msg.linear.x = TransP.at<float>(0, 3)*100;
+    msg.linear.y = TransP.at<float>(0, 7)*100;
+    msg.angular.z = angularZ;
+
+    CamPose_pub.publish(msg);
+ 
+    // pose.data = vec;
+    // CamPose_pub.publish(pose);
+}
+
+// set publish message of member pose
+void ImageGrabber::SetPose()
+{
+    // fill out message:
+    pose.layout.dim.push_back(std_msgs::MultiArrayDimension());
+    pose.layout.dim.push_back(std_msgs::MultiArrayDimension());
+    pose.layout.dim[0].label = "height";
+    pose.layout.dim[1].label = "width";
+    pose.layout.dim[0].size = 4;
+    pose.layout.dim[1].size = 4;
+    pose.layout.dim[0].stride = 16;
+    pose.layout.dim[1].stride = 4;
+    pose.layout.data_offset = 0;
+}
+
+
+
 void ImageGrabber::GrabRGBD(const sensor_msgs::ImageConstPtr& msgRGB,const sensor_msgs::ImageConstPtr& msgD)
 {
     // Copy the ros image message to cv::Mat.
     cv_bridge::CvImageConstPtr cv_ptrRGB;
+
     try
     {
         cv_ptrRGB = cv_bridge::toCvShare(msgRGB);
@@ -108,8 +281,11 @@ void ImageGrabber::GrabRGBD(const sensor_msgs::ImageConstPtr& msgRGB,const senso
         ROS_ERROR("cv_bridge exception: %s", e.what());
         return;
     }
-
     mpSLAM->TrackRGBD(cv_ptrRGB->image,cv_ptrD->image,cv_ptrRGB->header.stamp.toSec());
+
+    // get current data from tracker and keyframe
+    callback();
+    // publish point cloud and camera pose
+    PublishPointcloud();
+    PublishCamPose();
 }
-
-

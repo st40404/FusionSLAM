@@ -74,6 +74,7 @@ cv::Mat FrameDrawer::DrawFrame()
             vbMap = mvbMap;
             vbUselessPoint = mvbUselessPoint;
         }
+
     } // destroy scoped mutex -> release mutex
 
     if(im.channels()<3) //this should be always true
@@ -201,6 +202,7 @@ cv::Mat FrameDrawer::DrawFrame()
                 pt1.y=vCurrentKeys[i].pt.y-r;
                 pt2.x=vCurrentKeys[i].pt.x+r;
                 pt2.y=vCurrentKeys[i].pt.y+r;
+
 
                 // This is a match to a MapPoint in the map
                 if(vbMap[i])

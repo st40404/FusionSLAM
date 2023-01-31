@@ -378,8 +378,6 @@ void ViewerAR::DrawPlane(int ndivs, float ndivsize)
 void ViewerAR::DrawTrackedPoints(const std::vector<cv::KeyPoint> &vKeys, const std::vector<MapPoint *> &vMPs, cv::Mat &im)
 {
     const int N = vKeys.size();
-
-
     for(int i=0; i<N; i++)
     {
         if(vMPs[i])
