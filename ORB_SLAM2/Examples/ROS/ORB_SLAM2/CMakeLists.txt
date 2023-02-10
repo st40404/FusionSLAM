@@ -48,6 +48,7 @@ ${PROJECT_SOURCE_DIR}/../../../
 ${PROJECT_SOURCE_DIR}/../../../include
 ${Pangolin_INCLUDE_DIRS}
 ${PCL_INCLUDE_DIRS}
+
 )
 
 link_directories(${PCL_LIBRARY_DIRS})
@@ -63,6 +64,7 @@ ${PROJECT_SOURCE_DIR}/../../../Thirdparty/g2o/lib/libg2o.so
 ${PROJECT_SOURCE_DIR}/../../../lib/libORB_SLAM2.so
 -lboost_system
 )
+
 
 # Node for monocular camera
 rosbuild_add_executable(Mono

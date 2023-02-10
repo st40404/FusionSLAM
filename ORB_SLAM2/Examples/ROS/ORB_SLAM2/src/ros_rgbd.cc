@@ -34,6 +34,9 @@
 
 #include"../../../include/System.h"
 
+// add laser message type
+#include <sensor_msgs/LaserScan.h>
+
 
 // add pcl publish header
 #include <pcl_ros/point_cloud.h>
@@ -46,7 +49,11 @@ typedef pcl::PointCloud<pcl::PointXYZ> PointCloud;
 #include "std_msgs/MultiArrayDimension.h"
 #include "std_msgs/Float64MultiArray.h"
 
-#include <geometry_msgs/Twist.h>
+// add Camera service
+#include "all_process/CameraPose.h"
+
+// #include <geometry_msgs/Twist.h>
+#include <geometry_msgs/PointStamped.h>
 #include <math.h>   
 using namespace std;
 #define PI 3.14159265
@@ -58,12 +65,21 @@ public:
 
     ImageGrabber(ORB_SLAM2::System* pSLAM):mpSLAM(pSLAM){}
 
-    void GrabRGBD(const sensor_msgs::ImageConstPtr& msgRGB,const sensor_msgs::ImageConstPtr& msgD);
+    // void GrabRGBD(const sensor_msgs::ImageConstPtr& msgRGB,const sensor_msgs::ImageConstPtr& msgD);
+    void GrabRGBD(const sensor_msgs::ImageConstPtr& msgRGB,const sensor_msgs::ImageConstPtr& msgD, const sensor_msgs::LaserScanConstPtr &msgSCAN);
 
     // define Pointcloud topic
     ros::Publisher KeyFrame_pub;
+
     // define camera Pose topic
-    ros::Publisher CamPose_pub;
+    // ros::Publisher CamPose_pub;
+
+    // define camera Pose service
+    ros::ServiceServer CamPose_serv;
+
+    // save every previous poase untill client send the request
+    vector <geometry_msgs::PointStamped> PreviousPose ;
+
 
     // define CurrentFrame to get 2D(x,y) data from tracker
     vector<cv::KeyPoint> CurrentFrame;
@@ -76,12 +92,17 @@ public:
     // set pose varity setting
     void SetPose();
 
+    // save lidar stamp
+    ros::Time current_lidar_time_;
     // add callback function to get current frame from Tracker, and publish
     void callback();
     // add PublishPointcloud function to publish point cloud
     void PublishPointcloud();
-    // add PublishPose function to publish camera pose
+    // add PublishCamPose function to publish camera pose
     void PublishCamPose();
+    // add PublishPose function of master service for camera pose
+    bool PublishPose(   all_process::CameraPose::Request  &req,
+                        all_process::CameraPose::Response &res);
 
     ORB_SLAM2::System* mpSLAM;
 };
@@ -107,23 +128,40 @@ int main(int argc, char **argv)
 
     ros::NodeHandle nh;
 
-    // define /Ron/KeyFrame topic
-    igb.KeyFrame_pub = nh.advertise<PointCloud>("/Ron/KeyFrame", 1);
-    // define /Ron/CamPose topic
-    // igb.CamPose_pub = nh.advertise<std_msgs::Float64MultiArray>("/Ron/CamPose", 1);
-    igb.CamPose_pub = nh.advertise<geometry_msgs::Twist>("/mobile_position", 1);
+    // define /Ron/KeyFrame topic (in 2021 project)
+    // igb.KeyFrame_pub = nh.advertise<PointCloud>("/ORB/KeyFrame", 5);
 
-    
+    // define /Ron/CamPose topic (in 2021 project)
+    // igb.CamPose_pub = nh.advertise<std_msgs::Float64MultiArray>("/Ron/CamPose", 1);
+    // igb.CamPose_pub = nh.advertise<geometry_msgs::Twist>("/mobile_position", 1);
+
+    // define /ORB/camera_pose topic (thesis use publish pose)
+    // igb.CamPose_pub = nh.advertise<geometry_msgs::PointStamped>("/ORB/camera_pose", 5);
+
+    // define /ORB/pose service master
+    igb.CamPose_serv = nh.advertiseService("/ORB/pose", &ImageGrabber::PublishPose, &igb);
+
     // set publish message of member pose
     igb.SetPose();
 
+
+    // original code (in 2021 project)
     // message_filters::Subscriber<sensor_msgs::Image> rgb_sub(nh, "/cam_AGV/color/image_raw", 1);
     // message_filters::Subscriber<sensor_msgs::Image> depth_sub(nh, "cam_AGV/aligned_depth_to_color/image_raw", 1);
-    message_filters::Subscriber<sensor_msgs::Image> rgb_sub(nh, "/camera/rgb/image_raw", 1);
-    message_filters::Subscriber<sensor_msgs::Image> depth_sub(nh, "camera/depth_registered/image_raw", 1);
-    typedef message_filters::sync_policies::ApproximateTime<sensor_msgs::Image, sensor_msgs::Image> sync_pol;
-    message_filters::Synchronizer<sync_pol> sync(sync_pol(10), rgb_sub,depth_sub);
-    sync.registerCallback(boost::bind(&ImageGrabber::GrabRGBD, &igb, _1, _2));
+    // message_filters::Subscriber<sensor_msgs::Image> rgb_sub(nh, "/camera/rgb/image_raw", 1);
+    // message_filters::Subscriber<sensor_msgs::Image> depth_sub(nh, "camera/depth_registered/image_raw", 1);
+    // typedef message_filters::sync_policies::ApproximateTime<sensor_msgs::Image, sensor_msgs::Image> sync_pol;
+    // message_filters::Synchronizer<sync_pol> sync(sync_pol(10), rgb_sub, depth_sub);
+    // sync.registerCallback(boost::bind(&ImageGrabber::GrabRGBD, &igb, _1, _2));
+
+    message_filters::Subscriber<sensor_msgs::Image> rgb_sub(nh, "/camera/rgb/image_raw", 5);
+    message_filters::Subscriber<sensor_msgs::Image> depth_sub(nh, "/camera/depth_registered/image_raw", 5);
+    message_filters::Subscriber<sensor_msgs::LaserScan> scan_sub(nh, "/scan", 5);
+
+    typedef message_filters::sync_policies::ApproximateTime<sensor_msgs::Image, sensor_msgs::Image, sensor_msgs::LaserScan> sync_pol;
+    message_filters::Synchronizer<sync_pol> sync(sync_pol(10), rgb_sub, depth_sub, scan_sub);
+    sync.registerCallback(boost::bind(&ImageGrabber::GrabRGBD, &igb, _1, _2, _3));
+
 
     ros::spin();
 
@@ -173,13 +211,7 @@ float numz = 0.0;
 // publish camera pose
 void ImageGrabber::PublishCamPose()
 {
-    // std::vector<double> vec(CurrentPose.cols*CurrentPose.rows, 0);
     float* matData = (float*)CurrentPose.data;
-
-    // for (int i=0; i<CurrentPose.rows; i++)
-    //     for (int j=0; j<CurrentPose.cols; j++)
-    //         vec[i*CurrentPose.cols + j] = matData[i*CurrentPose.cols + j];
-
    
     cv::Mat TransP = cv::Mat::eye(4,4,CV_32F);
     TransP.at<float>(0, 3) = -2.47;
@@ -216,8 +248,6 @@ void ImageGrabber::PublishCamPose()
     else if ( TransP.at<float>(0, 2) < 0 &&  TransP.at<float>(1, 2) > 0 )
         angularZ = 180 + angularZ ;
 
-    // std::cerr << angularZ << "    " << TransP.at<float>(0, 2)* 180.0 / PI << "    " << TransP.at<float>(1, 2)* 180.0 / PI << "    " << atan( TransP.at<float>(0, 2)/TransP.at<float>(1, 2) ) * 180.0 / PI<< std::endl;
-    
     angularZ = 90 + angularZ;
 
     if ( angularZ > 180 )
@@ -225,18 +255,51 @@ void ImageGrabber::PublishCamPose()
     else if ( angularZ < -180 )
         angularZ += 360;
 
-    std::cerr << angularZ << std::endl;
+    // geometry_msgs::Twist msg;
+    // msg.linear.x = TransP.at<float>(0, 3)*100;
+    // msg.linear.y = TransP.at<float>(0, 7)*100;
+    // msg.angular.z = angularZ;
 
-    
-    geometry_msgs::Twist msg;
-    msg.linear.x = TransP.at<float>(0, 3)*100;
-    msg.linear.y = TransP.at<float>(0, 7)*100;
-    msg.angular.z = angularZ;
+    geometry_msgs::PointStamped msg;
+    // msg.header.stamp = ros::Time::now();
+    msg.header.stamp = current_lidar_time_;
+    msg.point.x = TransP.at<float>(0, 3)*100;
+    msg.point.y = TransP.at<float>(0, 7)*100;
+    msg.point.z = angularZ;
 
-    CamPose_pub.publish(msg);
+    // save every previous poase untill client send the request
+    PreviousPose.push_back(msg);
+
+
+    // publish pose as topic
+    // CamPose_pub.publish(msg);
  
     // pose.data = vec;
     // CamPose_pub.publish(pose);
+}
+
+bool ImageGrabber::PublishPose(  all_process::CameraPose::Request  &req,
+                                 all_process::CameraPose::Response &res)
+{
+//     std::cerr << "zzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzz" << std::endl;
+//     std::cerr << PreviousPose.size() << std::endl;
+    // std::cerr << req.sec << "  " << req.nsec << std::endl;
+    
+    for ( int i=0; i<=PreviousPose.size(); i++)
+        if (req.sec == PreviousPose[i].header.stamp.sec && req.nsec == PreviousPose[i].header.stamp.nsec)
+        {
+            // std::cerr << "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa" << std::endl;
+            // std::cerr << req.sec << "  " << req.nsec << std::endl;
+            res.x = PreviousPose[i].point.x;
+            res.y = PreviousPose[i].point.y;
+            res.z = PreviousPose[i].point.z;
+            PreviousPose.clear();
+            return true;
+        }
+    if (PreviousPose.size() >= 1000)
+        PreviousPose.clear();
+
+    return false;   
 }
 
 // set publish message of member pose
@@ -255,8 +318,8 @@ void ImageGrabber::SetPose()
 }
 
 
-
-void ImageGrabber::GrabRGBD(const sensor_msgs::ImageConstPtr& msgRGB,const sensor_msgs::ImageConstPtr& msgD)
+// void ImageGrabber::GrabRGBD(const sensor_msgs::ImageConstPtr& msgRGB,const sensor_msgs::ImageConstPtr& msgD)
+void ImageGrabber::GrabRGBD(const sensor_msgs::ImageConstPtr& msgRGB,const sensor_msgs::ImageConstPtr& msgD, const sensor_msgs::LaserScanConstPtr &msgSCAN)
 {
     // Copy the ros image message to cv::Mat.
     cv_bridge::CvImageConstPtr cv_ptrRGB;
@@ -283,9 +346,12 @@ void ImageGrabber::GrabRGBD(const sensor_msgs::ImageConstPtr& msgRGB,const senso
     }
     mpSLAM->TrackRGBD(cv_ptrRGB->image,cv_ptrD->image,cv_ptrRGB->header.stamp.toSec());
 
+    // get lidar stamp
+    current_lidar_time_ = msgSCAN->header.stamp;               // last stamp 
+
     // get current data from tracker and keyframe
     callback();
     // publish point cloud and camera pose
-    PublishPointcloud();
+    // PublishPointcloud();
     PublishCamPose();
 }

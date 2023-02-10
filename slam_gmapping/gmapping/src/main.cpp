@@ -43,5 +43,18 @@ main(int argc, char** argv)
   ros::spin();
 
   return(0);
+
+
+  /////  ROS in multithread
+  // ros::init(argc, argv, "slam_gmapping");
+  
+  // SlamGMapping gn;
+  // gn.startLiveSlam();
+
+  // ros::AsyncSpinner spinner(3);
+  // spinner.start();
+  // ros::waitForShutdown();
+
+  return(0);
 }
 

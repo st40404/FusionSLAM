@@ -5,6 +5,15 @@
     <include file="$(find realsense2_camera)/launch/rs_rgbd.launch">  </include>
     <!-- <include file="$(find realsense2_camera)/launch/rs_dual_cam.launch">  </include> -->
 
+    <!-- open launch: lidar driver -->
+    <include file="$(find urg_node)/launch/urg_lidar.launch">  </include>
+
+    <!-- open launch: motor driver -->
+    <include file="$(find turtlebot3_bringup)/launch/turtlebot3_core.launch">  </include>
+
+    <!-- open launch: gmapping -->
+    <!-- <include file="$(find turtlebot3_slam)/launch/turtlebot3_slam.launch">  </include> -->
+
 
     <arg
     name="path_to_vocabulary"

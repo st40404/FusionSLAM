@@ -47,8 +47,10 @@
 #include <chrono>
 // IP-ICP will using this library
 #include <csm/csm_all.h>
-
-
+// Subscribe ORB pose
+#include <geometry_msgs/PointStamped.h>
+// add Camera service
+#include "all_process/CameraPose.h"
 
 
 class SlamGMapping
@@ -80,6 +82,9 @@ class SlamGMapping
     sm_result output_;
     LDP prev_ldp_scan_;
 
+    // change method : 0 = gmapping, 1 = PLICP
+    int mymethod = 1;
+
     // initialize PLICP parameters
     void InitICPParams();
     // save the lidar angle, prevent to compute angle every time
@@ -88,8 +93,15 @@ class SlamGMapping
     void LaserScanToLDP(const sensor_msgs::LaserScan::ConstPtr &scan_msg, LDP &ldp);
     // use PLICP to compute transform between last frame and current frame
     void ScanMatchWithPLICP(LDP &curr_ldp_scan, const ros::Time &time);
-
+    // using PLICP method
     bool ScanCallback(const sensor_msgs::LaserScan::ConstPtr& scan, GMapping::OrientedPoint& gmap_pose);
+
+
+    // subscribe ORB pose
+    ros::Subscriber sub;
+    void SubsPose(const geometry_msgs::PointStamped::ConstPtr &pose);
+    ros::ServiceClient CamPose_client;
+    all_process::CameraPose srv;
 
 
 
@@ -109,6 +121,10 @@ class SlamGMapping
     // PLICP function
     ros::Time last_icp_time_;               // last stamp 
     ros::NodeHandle private_node_;          // ros private node
+    // new thread to subscribe ORB pose 
+    boost::thread* pose_thread_;
+    // ros::NodeHandle tnode_;
+
 
     GMapping::GridSlamProcessor* gsp_;
     GMapping::RangeSensor* gsp_laser_;
