@@ -82,8 +82,8 @@ class SlamGMapping
     sm_result output_;
     LDP prev_ldp_scan_;
 
-    // change method : 0 = gmapping, 1 = PLICP
-    int mymethod = 1;
+    // change method : 0 = gmapping, 1 = PLICP, 2 = PLICP+ORB
+    int mymethod = 2;
 
     // initialize PLICP parameters
     void InitICPParams();
@@ -106,6 +106,7 @@ class SlamGMapping
 
 
     GMapping::OrientedPoint last_odom_pose;
+    GMapping::OrientedPoint last_ORB_pose;
     bool first_time = true;
   private:
     ros::NodeHandle node_;

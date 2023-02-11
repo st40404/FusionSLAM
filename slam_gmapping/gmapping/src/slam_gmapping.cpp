@@ -281,20 +281,22 @@ void SlamGMapping::startLiveSlam()
   scan_filter_ = new tf::MessageFilter<sensor_msgs::LaserScan>(*scan_filter_sub_, tf_, odom_frame_, 5);
   scan_filter_->registerCallback(boost::bind(&SlamGMapping::laserCallback, this, _1));
 
+  transform_thread_ = new boost::thread(boost::bind(&SlamGMapping::publishLoop, this, transform_publish_period_));
 
-
+  if (mymethod == 0)
+    ROS_INFO("Using method : Gmapping");
+  else if (mymethod == 1)
+    ROS_INFO("Using method PLICP");
   // subscribe ORB pose
-  if (mymethod == 1)
+  else if (mymethod == 2)
   {
+    ROS_INFO("Using method : PLICP + ORB");
     // using service (client)
     CamPose_client = node_.serviceClient<all_process::CameraPose>("/ORB/pose");
 
     // using subscribe
     // sub = node_.subscribe("/ORB/camera_pose", 5, &SlamGMapping::SubsPose, this);
   }
-
-
-  transform_thread_ = new boost::thread(boost::bind(&SlamGMapping::publishLoop, this, transform_publish_period_));
 }
 
 void SlamGMapping::startReplay(const std::string & bag_fname, std::string scan_topic)
@@ -724,16 +726,21 @@ SlamGMapping::laserCallback(const sensor_msgs::LaserScan::ConstPtr& scan)
   // std::cerr << scan->header.stamp.sec << "  " << scan->header.stamp.nsec << std::endl;
   // std::cerr <<  "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx" << std::endl;
 
-  srv.request.sec = scan->header.stamp.sec;
-  srv.request.nsec = scan->header.stamp.nsec;
+  // // TESTING PLICP
+  // LDP curr_ldp_scan;
+  // // change scan type transform to csm type
+  // LaserScanToLDP(scan, curr_ldp_scan);
+  // // compute PL-ICP compute the transform
+  // ScanMatchWithPLICP(curr_ldp_scan, scan->header.stamp);
 
-  // if the pose request with same stamp between camera and lidar was accept
-  if (CamPose_client.call(srv))
+  // std::chrono::steady_clock::time_point end_time = std::chrono::steady_clock::now();
+  // std::chrono::duration<double> time_used = std::chrono::duration_cast<std::chrono::duration<double>>(end_time - start_time);
+  // std::cerr << "\naaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa: " << time_used.count() << " s " << std::endl;
+  // std::cerr << output_.x[0] << "  " << output_.x[1] << "  " << output_.x[2] * 180 / M_PI << std::endl;
+
+  ///////    Gmapping
+  if (mymethod == 0)
   {
-    ROS_INFO("Get pose : x : %lf, y : %lf, z : %lf", srv.response.x, srv.response.y, srv.response.z);
-
-    std::chrono::steady_clock::time_point start_time = std::chrono::steady_clock::now();
-
     laser_count_++;
     if ((laser_count_ % throttle_scans_) != 0)
       return;
@@ -760,22 +767,172 @@ SlamGMapping::laserCallback(const sensor_msgs::LaserScan::ConstPtr& scan)
 
     GMapping::OrientedPoint lcp_current_pose;
 
+    if(addScan(*scan, odom_pose))
+    {
+      // std::chrono::steady_clock::time_point end_time = std::chrono::steady_clock::now();
+      // std::chrono::duration<double> time_used = std::chrono::duration_cast<std::chrono::duration<double>>(end_time - start_time);
+      // std::cout << "\naaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa: " << time_used.count() << " s " << std::endl;
+      // std::chrono::steady_clock::time_point start_time = std::chrono::steady_clock::now();
 
+      ROS_DEBUG("scan processed");
+      GMapping::OrientedPoint mpose = gsp_->getParticles()[gsp_->getBestParticleIndex()].pose;
 
-    // // TESTING PLICP
-    // LDP curr_ldp_scan;
-    // // change scan type transform to csm type
-    // LaserScanToLDP(scan, curr_ldp_scan);
-    // // compute PL-ICP compute the transform
-    // ScanMatchWithPLICP(curr_ldp_scan, scan->header.stamp);
+      // std::cerr << "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa" << std::endl;
+      // std::cerr << mpose.x << "  " << mpose.y << "  " << mpose.theta << std::endl;
+      // std::cerr << odom_pose.x << "  " << odom_pose.y << "  " << odom_pose.theta << std::endl;
+      // std::cerr <<  last_odom_pose.x + output_.x[0] << "  " <<  last_odom_pose.y + output_.x[1] << "  " <<  last_odom_pose.theta + output_.x[2] << std::endl;
+      // std::cerr << "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb" << std::endl;
+
+      ROS_DEBUG("new best pose: %.3f %.3f %.3f", mpose.x, mpose.y, mpose.theta);
+      ROS_DEBUG("odom pose: %.3f %.3f %.3f", odom_pose.x, odom_pose.y, odom_pose.theta);
+      ROS_DEBUG("correction: %.3f %.3f %.3f", mpose.x - odom_pose.x, mpose.y - odom_pose.y, mpose.theta - odom_pose.theta);
+
+      // laser_to_map : lidar pose in map frame
+      // odom_to_laser : lidar pose in odom frame
+      tf::Transform laser_to_map = tf::Transform(tf::createQuaternionFromRPY(0, 0, mpose.theta), tf::Vector3(mpose.x, mpose.y, 0.0)).inverse();
+      tf::Transform odom_to_laser = tf::Transform(tf::createQuaternionFromRPY(0, 0, odom_pose.theta), tf::Vector3(odom_pose.x, odom_pose.y, 0.0));
+
+      // map_to_odom_ : compute relationship between odom frame and map frame
+      map_to_odom_mutex_.lock();
+      map_to_odom_ = (odom_to_laser * laser_to_map).inverse();
+      map_to_odom_mutex_.unlock();
+
+      // map update will follow map_update_interval_ this parameter
+      if(!got_map_ || (scan->header.stamp - last_map_update) > map_update_interval_)
+      {
+        updateMap(*scan);
+        last_map_update = scan->header.stamp;
+        ROS_DEBUG("Updated the map");
+      }
+    } else
+      ROS_DEBUG("cannot process scan");
 
     // std::chrono::steady_clock::time_point end_time = std::chrono::steady_clock::now();
     // std::chrono::duration<double> time_used = std::chrono::duration_cast<std::chrono::duration<double>>(end_time - start_time);
-    // std::cerr << "\naaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa: " << time_used.count() << " s " << std::endl;
-    // std::cerr << output_.x[0] << "  " << output_.x[1] << "  " << output_.x[2] * 180 / M_PI << std::endl;
+    // std::cout << "\naaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa: " << time_used.count() << " s " << std::endl;
+  }
 
-    if (mymethod == 0)
-      if(addScan(*scan, odom_pose))
+///////    PLICP
+  else if (mymethod == 1)
+  {
+    laser_count_++;
+    if ((laser_count_ % throttle_scans_) != 0)
+      return;
+
+    static ros::Time last_map_update(0,0);
+
+    // We can't initialize the mapper until we've got the first scan
+    if(!got_first_scan_)
+    {
+      if(!initMapper(*scan))
+        return;
+
+      // initialize csm param
+      InitICPParams();
+      CreateCache(scan);
+      LaserScanToLDP(scan, prev_ldp_scan_);
+      last_icp_time_ = scan->header.stamp;
+      got_first_scan_ = true;
+    }
+
+    // odom_pose : laser pose in odom frame
+    // MAYBE : odom_pose is computed by motor motion
+    GMapping::OrientedPoint odom_pose;
+
+    GMapping::OrientedPoint lcp_current_pose;
+
+    if (ScanCallback(scan, odom_pose))
+    {
+      // std::chrono::steady_clock::time_point end_time = std::chrono::steady_clock::now();
+      // std::chrono::duration<double> time_used = std::chrono::duration_cast<std::chrono::duration<double>>(end_time - start_time);
+      // std::cout << "\naaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa: " << time_used.count() << " s " << std::endl;
+      // std::chrono::steady_clock::time_point start_time = std::chrono::steady_clock::now();
+
+      ROS_DEBUG("scan processed");
+
+      std::cerr << "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa" << std::endl;
+      std::cerr << odom_pose.x << "  " << odom_pose.y << "  " << odom_pose.theta << std::endl;
+      // std::cerr <<  last_odom_pose.x + output_.x[0] << "  " <<  last_odom_pose.y + output_.x[1] << "  " <<  last_odom_pose.theta + output_.x[2] << std::endl;
+      // std::cerr << output_.x[0] << "  " << output_.x[1] << "  " << output_.x[2]*180/3.14 << std::endl;
+      // std::cerr << "ddddddddddddddddddddddddddddd" << std::endl;
+
+      lcp_current_pose.x = last_odom_pose.x + output_.x[0];
+      lcp_current_pose.y = last_odom_pose.y + output_.x[1];
+      lcp_current_pose.theta = last_odom_pose.theta + output_.x[2];
+      last_odom_pose = odom_pose;
+
+      ROS_DEBUG("new best pose: %.3f %.3f %.3f", lcp_current_pose.x, lcp_current_pose.y, lcp_current_pose.theta);
+      ROS_DEBUG("odom pose: %.3f %.3f %.3f", odom_pose.x, odom_pose.y, odom_pose.theta);
+      ROS_DEBUG("correction: %.3f %.3f %.3f", output_.x[0], output_.x[1], output_.x[2]);
+
+      // laser_to_map : lidar pose in map frame
+      // odom_to_laser : lidar pose in odom frame
+      tf::Transform laser_to_map = tf::Transform(tf::createQuaternionFromRPY(0, 0, lcp_current_pose.theta), tf::Vector3(lcp_current_pose.x, lcp_current_pose.y, 0.0)).inverse();
+      tf::Transform odom_to_laser = tf::Transform(tf::createQuaternionFromRPY(0, 0, odom_pose.theta), tf::Vector3(odom_pose.x, odom_pose.y, 0.0));
+
+      // map_to_odom_ : compute relationship between odom frame and map frame
+      map_to_odom_mutex_.lock();
+      map_to_odom_ = (odom_to_laser * laser_to_map).inverse();
+      map_to_odom_mutex_.unlock();
+
+      // map update will follow map_update_interval_ this parameter
+      if(!got_map_ || (scan->header.stamp - last_map_update) > map_update_interval_)
+      {
+        std::cerr << "zzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzz" << std::endl;
+        publishMap(*scan);
+        last_map_update = scan->header.stamp;
+        ROS_DEBUG("Updated the map");
+      }
+    } else
+      ROS_DEBUG("cannot process scan");
+  } 
+
+  // std::chrono::steady_clock::time_point end_time = std::chrono::steady_clock::now();
+  // std::chrono::duration<double> time_used = std::chrono::duration_cast<std::chrono::duration<double>>(end_time - start_time);
+  // std::cout << "\naaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa: " << time_used.count() << " s " << std::endl;
+  
+///////    PLICP + ORB
+  else if (mymethod == 2)
+  {
+    srv.request.sec = scan->header.stamp.sec;
+    srv.request.nsec = scan->header.stamp.nsec;
+
+    // if the pose request with same stamp between camera and lidar was accept
+    if (CamPose_client.call(srv))
+    {
+      // ROS_INFO("Get pose : x : %lf, y : %lf, z : %lf", srv.response.x, srv.response.y, srv.response.z);
+
+      laser_count_++;
+      if ((laser_count_ % throttle_scans_) != 0)
+        return;
+
+      static ros::Time last_map_update(0,0);
+
+      // We can't initialize the mapper until we've got the first scan
+      if(!got_first_scan_)
+      {
+        if(!initMapper(*scan))
+          return;
+
+        // initialize csm param
+        InitICPParams();
+        CreateCache(scan);
+        LaserScanToLDP(scan, prev_ldp_scan_);
+        last_icp_time_ = scan->header.stamp;
+        last_ORB_pose.x = srv.response.x;
+        last_ORB_pose.y = srv.response.y;
+        last_ORB_pose.theta = srv.response.z;
+        got_first_scan_ = true;
+      }
+
+      // odom_pose : laser pose in odom frame
+      // MAYBE : odom_pose is computed by motor motion
+      GMapping::OrientedPoint odom_pose;
+
+      GMapping::OrientedPoint lcp_current_pose;
+      GMapping::OrientedPoint ORB_current_change;
+
+      if (ScanCallback(scan, odom_pose))
       {
         // std::chrono::steady_clock::time_point end_time = std::chrono::steady_clock::now();
         // std::chrono::duration<double> time_used = std::chrono::duration_cast<std::chrono::duration<double>>(end_time - start_time);
@@ -783,21 +940,38 @@ SlamGMapping::laserCallback(const sensor_msgs::LaserScan::ConstPtr& scan)
         // std::chrono::steady_clock::time_point start_time = std::chrono::steady_clock::now();
 
         ROS_DEBUG("scan processed");
-        GMapping::OrientedPoint mpose = gsp_->getParticles()[gsp_->getBestParticleIndex()].pose;
 
         // std::cerr << "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa" << std::endl;
-        // std::cerr << mpose.x << "  " << mpose.y << "  " << mpose.theta << std::endl;
         // std::cerr << odom_pose.x << "  " << odom_pose.y << "  " << odom_pose.theta << std::endl;
         // std::cerr <<  last_odom_pose.x + output_.x[0] << "  " <<  last_odom_pose.y + output_.x[1] << "  " <<  last_odom_pose.theta + output_.x[2] << std::endl;
-        // std::cerr << "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb" << std::endl;
+        // std::cerr << output_.x[0] << "  " << output_.x[1] << "  " << output_.x[2] << std::endl;
+        // std::cerr << "ddddddddddddddddddddddddddddd" << std::endl;
 
-        ROS_DEBUG("new best pose: %.3f %.3f %.3f", mpose.x, mpose.y, mpose.theta);
+        lcp_current_pose.x = last_odom_pose.x + output_.x[0];
+        lcp_current_pose.y = last_odom_pose.y + output_.x[1];
+        lcp_current_pose.theta = last_odom_pose.theta + output_.x[2];
+        last_odom_pose = odom_pose;
+
+        ORB_current_change.x = srv.response.x - last_ORB_pose.x;
+        ORB_current_change.y = srv.response.y - last_ORB_pose.y;
+        ORB_current_change.theta = srv.response.z - last_ORB_pose.theta;
+
+        last_ORB_pose.x = srv.response.x;
+        last_ORB_pose.y = srv.response.y;
+        last_ORB_pose.theta = srv.response.z;
+
+        std::cerr << "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa" << std::endl;
+        // std::cerr << odom_pose.x << "  " << odom_pose.y << "  " << odom_pose.theta << std::endl;
+        std::cerr << output_.x[0] << "  " << output_.x[1] << "  " << output_.x[2] << std::endl;
+        std::cerr << ORB_current_change.x << "  " << ORB_current_change.y << "  " << ORB_current_change.theta << std::endl;
+
+        ROS_DEBUG("new best pose: %.3f %.3f %.3f", lcp_current_pose.x, lcp_current_pose.y, lcp_current_pose.theta);
         ROS_DEBUG("odom pose: %.3f %.3f %.3f", odom_pose.x, odom_pose.y, odom_pose.theta);
-        ROS_DEBUG("correction: %.3f %.3f %.3f", mpose.x - odom_pose.x, mpose.y - odom_pose.y, mpose.theta - odom_pose.theta);
+        ROS_DEBUG("correction: %.3f %.3f %.3f", output_.x[0], output_.x[1], output_.x[2]);
 
         // laser_to_map : lidar pose in map frame
         // odom_to_laser : lidar pose in odom frame
-        tf::Transform laser_to_map = tf::Transform(tf::createQuaternionFromRPY(0, 0, mpose.theta), tf::Vector3(mpose.x, mpose.y, 0.0)).inverse();
+        tf::Transform laser_to_map = tf::Transform(tf::createQuaternionFromRPY(0, 0, lcp_current_pose.theta), tf::Vector3(lcp_current_pose.x, lcp_current_pose.y, 0.0)).inverse();
         tf::Transform odom_to_laser = tf::Transform(tf::createQuaternionFromRPY(0, 0, odom_pose.theta), tf::Vector3(odom_pose.x, odom_pose.y, 0.0));
 
         // map_to_odom_ : compute relationship between odom frame and map frame
@@ -808,72 +982,16 @@ SlamGMapping::laserCallback(const sensor_msgs::LaserScan::ConstPtr& scan)
         // map update will follow map_update_interval_ this parameter
         if(!got_map_ || (scan->header.stamp - last_map_update) > map_update_interval_)
         {
-          updateMap(*scan);
+          std::cerr << "zzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzz" << std::endl;
+          publishMap(*scan);
           last_map_update = scan->header.stamp;
           ROS_DEBUG("Updated the map");
         }
       } else
         ROS_DEBUG("cannot process scan");
-
-      // std::chrono::steady_clock::time_point end_time = std::chrono::steady_clock::now();
-      // std::chrono::duration<double> time_used = std::chrono::duration_cast<std::chrono::duration<double>>(end_time - start_time);
-      // std::cout << "\naaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa: " << time_used.count() << " s " << std::endl;
-
-
-    if (mymethod == 1)
-        if (ScanCallback(scan, odom_pose))
-        {
-          // std::chrono::steady_clock::time_point end_time = std::chrono::steady_clock::now();
-          // std::chrono::duration<double> time_used = std::chrono::duration_cast<std::chrono::duration<double>>(end_time - start_time);
-          // std::cout << "\naaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa: " << time_used.count() << " s " << std::endl;
-          // std::chrono::steady_clock::time_point start_time = std::chrono::steady_clock::now();
-
-          ROS_DEBUG("scan processed");
-
-          // std::cerr << "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa" << std::endl;
-          // std::cerr << odom_pose.x << "  " << odom_pose.y << "  " << odom_pose.theta << std::endl;
-          // std::cerr <<  last_odom_pose.x + output_.x[0] << "  " <<  last_odom_pose.y + output_.x[1] << "  " <<  last_odom_pose.theta + output_.x[2] << std::endl;
-          // std::cerr << output_.x[0] << "  " << output_.x[1] << "  " << output_.x[2] << std::endl;
-          // std::cerr << "ddddddddddddddddddddddddddddd" << std::endl;
-
-          lcp_current_pose.x = last_odom_pose.x + output_.x[0];
-          lcp_current_pose.y = last_odom_pose.y + output_.x[1];
-          lcp_current_pose.theta = last_odom_pose.theta + output_.x[2];
-          last_odom_pose = odom_pose;
-
-          ROS_DEBUG("new best pose: %.3f %.3f %.3f", lcp_current_pose.x, lcp_current_pose.y, lcp_current_pose.theta);
-          ROS_DEBUG("odom pose: %.3f %.3f %.3f", odom_pose.x, odom_pose.y, odom_pose.theta);
-          ROS_DEBUG("correction: %.3f %.3f %.3f", output_.x[0], output_.x[1], output_.x[2]);
-
-          // laser_to_map : lidar pose in map frame
-          // odom_to_laser : lidar pose in odom frame
-          tf::Transform laser_to_map = tf::Transform(tf::createQuaternionFromRPY(0, 0, lcp_current_pose.theta), tf::Vector3(lcp_current_pose.x, lcp_current_pose.y, 0.0)).inverse();
-          tf::Transform odom_to_laser = tf::Transform(tf::createQuaternionFromRPY(0, 0, odom_pose.theta), tf::Vector3(odom_pose.x, odom_pose.y, 0.0));
-
-          // map_to_odom_ : compute relationship between odom frame and map frame
-          map_to_odom_mutex_.lock();
-          map_to_odom_ = (odom_to_laser * laser_to_map).inverse();
-          map_to_odom_mutex_.unlock();
-
-          // map update will follow map_update_interval_ this parameter
-          if(!got_map_ || (scan->header.stamp - last_map_update) > map_update_interval_)
-          {
-            std::cerr << "zzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzz" << std::endl;
-            publishMap(*scan);
-            last_map_update = scan->header.stamp;
-            ROS_DEBUG("Updated the map");
-          }
-        } else
-          ROS_DEBUG("cannot process scan");
-
-        // std::chrono::steady_clock::time_point end_time = std::chrono::steady_clock::now();
-        // std::chrono::duration<double> time_used = std::chrono::duration_cast<std::chrono::duration<double>>(end_time - start_time);
-        // std::cout << "\naaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa: " << time_used.count() << " s " << std::endl;
-  }
-  else
-  {
-    ROS_ERROR("Failed to call %d sec and %d nsec scan topic", (long int)srv.request.sec, (long int)srv.request.nsec);
-    
+    } 
+    // else
+    //   ROS_ERROR("Failed to call %d sec and %d nsec scan topic", (long int)srv.request.sec, (long int)srv.request.nsec);
   }
 }
 

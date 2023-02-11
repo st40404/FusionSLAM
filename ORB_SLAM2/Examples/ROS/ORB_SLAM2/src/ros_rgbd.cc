@@ -100,8 +100,8 @@ public:
     void PublishPointcloud();
     // add PublishCamPose function to publish camera pose
     void PublishCamPose();
-    // add PublishPose function of master service for camera pose
-    bool PublishPose(   all_process::CameraPose::Request  &req,
+    // add SurvicePose function of master service for camera pose
+    bool SurvicePose(   all_process::CameraPose::Request  &req,
                         all_process::CameraPose::Response &res);
 
     ORB_SLAM2::System* mpSLAM;
@@ -139,7 +139,7 @@ int main(int argc, char **argv)
     // igb.CamPose_pub = nh.advertise<geometry_msgs::PointStamped>("/ORB/camera_pose", 5);
 
     // define /ORB/pose service master
-    igb.CamPose_serv = nh.advertiseService("/ORB/pose", &ImageGrabber::PublishPose, &igb);
+    igb.CamPose_serv = nh.advertiseService("/ORB/pose", &ImageGrabber::SurvicePose, &igb);
 
     // set publish message of member pose
     igb.SetPose();
@@ -211,44 +211,66 @@ float numz = 0.0;
 // publish camera pose
 void ImageGrabber::PublishCamPose()
 {
-    float* matData = (float*)CurrentPose.data;
+    // float* matData = (float*)CurrentPose.data;
    
     cv::Mat TransP = cv::Mat::eye(4,4,CV_32F);
-    TransP.at<float>(0, 3) = -2.47;
-    TransP.at<float>(1, 3) = -3.72;
-
-    cv::Mat TransX = cv::Mat::eye(4,4,CV_32F);
+    // TransP.at<float>(0, 3) = -2.47;
+    // TransP.at<float>(1, 3) = -3.72;
+    // cv::Mat TransX = cv::Mat::eye(4,4,CV_32F);
     cv::Mat TransZ = cv::Mat::eye(4,4,CV_32F);
 
-    int param = 180;
-    TransX.at<float>(1, 2) = cos ( param * PI / 180.0 );
-    TransX.at<float>(1, 3) = -1*sin ( param * PI / 180.0 );
-    TransX.at<float>(2, 2) = sin ( param * PI / 180.0 );
-    TransX.at<float>(2, 3) = cos ( param * PI / 180.0 );
+    ///////     project use    //////
+    // int param = 180;
+    // TransX.at<float>(1, 2) = cos ( param * PI / 180.0 );
+    // TransX.at<float>(1, 3) = -1*sin ( param * PI / 180.0 );
+    // TransX.at<float>(2, 2) = sin ( param * PI / 180.0 );
+    // TransX.at<float>(2, 3) = cos ( param * PI / 180.0 );
 
-    int rotate = 180;
+    // int rotate = 180;
+    // TransZ.at<float>(0, 0) = cos ( rotate * PI / 180.0 );
+    // TransZ.at<float>(0, 1) = -1*sin ( rotate * PI / 180.0 );
+    // TransZ.at<float>(1, 0) = sin ( rotate * PI / 180.0 );
+    // TransZ.at<float>(1, 1) = cos ( rotate * PI / 180.0 );
+
+    // TransP = TransX*TransZ*TransP*CurrentPose;
+
+    // if ( TransP.at<float>(0, 2) > 0 &&  TransP.at<float>(1, 2) < 0 )
+    //     angularZ = angularZ ;
+
+    // else if ( TransP.at<float>(0, 2) > 0 &&  TransP.at<float>(1, 2) > 0 )
+    //     angularZ = 180 + angularZ ;
+
+    // else if ( TransP.at<float>(0, 2) < 0 &&  TransP.at<float>(1, 2) < 0)
+    //     angularZ = angularZ ;
+
+    // else if ( TransP.at<float>(0, 2) < 0 &&  TransP.at<float>(1, 2) > 0 )
+    //     angularZ = 180 + angularZ ;
+
+    // angularZ = 90 + angularZ;
+
+
+    /////   thesis    //////
+    int rotate = 90;
     TransZ.at<float>(0, 0) = cos ( rotate * PI / 180.0 );
     TransZ.at<float>(0, 1) = -1*sin ( rotate * PI / 180.0 );
     TransZ.at<float>(1, 0) = sin ( rotate * PI / 180.0 );
     TransZ.at<float>(1, 1) = cos ( rotate * PI / 180.0 );
 
+    TransP = TransZ*CurrentPose;
 
-    TransP = TransX*TransZ*TransP*CurrentPose;
-    float angularZ = atan( TransP.at<float>(0, 2)/TransP.at<float>(1, 2) ) * 180.0 / PI;
+    float angularZ = atan( TransP.at<float>(1, 2)/TransP.at<float>(2, 2) ) * 180.0 / PI;
 
-    if ( TransP.at<float>(0, 2) > 0 &&  TransP.at<float>(1, 2) < 0 )
-        angularZ = angularZ ;       
-
-    else if ( TransP.at<float>(0, 2) > 0 &&  TransP.at<float>(1, 2) > 0 )
-        angularZ = 180 + angularZ ;
-
-    else if ( TransP.at<float>(0, 2) < 0 &&  TransP.at<float>(1, 2) < 0)
+    if ( TransP.at<float>(1, 2) > 0 &&  TransP.at<float>(2, 2) > 0 )
         angularZ = angularZ ;
 
-    else if ( TransP.at<float>(0, 2) < 0 &&  TransP.at<float>(1, 2) > 0 )
+    else if ( TransP.at<float>(1, 2) > 0 &&  TransP.at<float>(2, 2) < 0 )
         angularZ = 180 + angularZ ;
 
-    angularZ = 90 + angularZ;
+    else if ( TransP.at<float>(1, 2) < 0 &&  TransP.at<float>(2, 2) < 0)
+        angularZ = 180 + angularZ ;
+
+    else if ( TransP.at<float>(1, 2) < 0 &&  TransP.at<float>(2, 2) > 0 )
+        angularZ = angularZ ;
 
     if ( angularZ > 180 )
         angularZ -= 360;
@@ -270,7 +292,6 @@ void ImageGrabber::PublishCamPose()
     // save every previous poase untill client send the request
     PreviousPose.push_back(msg);
 
-
     // publish pose as topic
     // CamPose_pub.publish(msg);
  
@@ -278,7 +299,7 @@ void ImageGrabber::PublishCamPose()
     // CamPose_pub.publish(pose);
 }
 
-bool ImageGrabber::PublishPose(  all_process::CameraPose::Request  &req,
+bool ImageGrabber::SurvicePose(  all_process::CameraPose::Request  &req,
                                  all_process::CameraPose::Response &res)
 {
 //     std::cerr << "zzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzz" << std::endl;
@@ -289,7 +310,7 @@ bool ImageGrabber::PublishPose(  all_process::CameraPose::Request  &req,
         if (req.sec == PreviousPose[i].header.stamp.sec && req.nsec == PreviousPose[i].header.stamp.nsec)
         {
             // std::cerr << "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa" << std::endl;
-            // std::cerr << req.sec << "  " << req.nsec << std::endl;
+            // std::cerr << PreviousPose[i].point.x << "  " << PreviousPose[i].point.y << "  " << PreviousPose[i].point.z << std::endl;
             res.x = PreviousPose[i].point.x;
             res.y = PreviousPose[i].point.y;
             res.z = PreviousPose[i].point.z;
