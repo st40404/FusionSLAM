@@ -33,6 +33,7 @@
 
 #include "slam_gmapping.h"
 
+
 int
 main(int argc, char** argv)
 {
@@ -40,6 +41,7 @@ main(int argc, char** argv)
 
   SlamGMapping gn;
   gn.startLiveSlam();
+
   ros::spin();
 
   return(0);

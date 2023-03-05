@@ -174,7 +174,6 @@ void SlamGMapping::init()
   // log4cxx::Logger::getLogger(ROSCONSOLE_DEFAULT_NAME)->setLevel(ros::console::g_level_lookup[ros::console::levels::Debug]);
 
   // The library is pretty chatty
-  //gsp_ = new GMapping::GridSlamProcessor(std::cerr);
   gsp_ = new GMapping::GridSlamProcessor();
   ROS_ASSERT(gsp_);
 
@@ -753,10 +752,6 @@ SlamGMapping::laserCallback(const sensor_msgs::LaserScan::ConstPtr& scan)
       if(!initMapper(*scan))
         return;
 
-      // initialize csm param
-      InitICPParams();
-      CreateCache(scan);
-      LaserScanToLDP(scan, prev_ldp_scan_);
       last_icp_time_ = scan->header.stamp;
       got_first_scan_ = true;
     }
@@ -776,12 +771,6 @@ SlamGMapping::laserCallback(const sensor_msgs::LaserScan::ConstPtr& scan)
 
       ROS_DEBUG("scan processed");
       GMapping::OrientedPoint mpose = gsp_->getParticles()[gsp_->getBestParticleIndex()].pose;
-
-      // std::cerr << "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa" << std::endl;
-      // std::cerr << mpose.x << "  " << mpose.y << "  " << mpose.theta << std::endl;
-      // std::cerr << odom_pose.x << "  " << odom_pose.y << "  " << odom_pose.theta << std::endl;
-      // std::cerr <<  last_odom_pose.x + output_.x[0] << "  " <<  last_odom_pose.y + output_.x[1] << "  " <<  last_odom_pose.theta + output_.x[2] << std::endl;
-      // std::cerr << "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb" << std::endl;
 
       ROS_DEBUG("new best pose: %.3f %.3f %.3f", mpose.x, mpose.y, mpose.theta);
       ROS_DEBUG("odom pose: %.3f %.3f %.3f", odom_pose.x, odom_pose.y, odom_pose.theta);
@@ -922,6 +911,16 @@ SlamGMapping::laserCallback(const sensor_msgs::LaserScan::ConstPtr& scan)
         last_ORB_pose.x = srv.response.x;
         last_ORB_pose.y = srv.response.y;
         last_ORB_pose.theta = srv.response.z;
+
+        MeasurementPackage meas_init_pose;
+        meas_init_pose.raw_measurements_ = VectorXd(2);
+        meas_init_pose.raw_measurements_ << 0, 0;
+        meas_init_pose.timestamp_ = srv.request.sec * 1000000000 + srv.request.nsec;
+        meas_init_pose.sensor_type_ = MeasurementPackage::LASER;
+
+        got_first_scan_ = orb_ukf.ProcessMeasurement(meas_init_pose);
+        got_first_scan_ = plicp_ukf.ProcessMeasurement(meas_init_pose);
+
         got_first_scan_ = true;
       }
 
@@ -932,13 +931,19 @@ SlamGMapping::laserCallback(const sensor_msgs::LaserScan::ConstPtr& scan)
       GMapping::OrientedPoint lcp_current_pose;
       GMapping::OrientedPoint ORB_current_change;
 
+      // to save the best variety of Agv 
+      GMapping::OrientedPoint best_pose;
+
+      // save ORB and PLICP pose, rotate, timestamp
+      MeasurementPackage meas_ORB_pose;
+      MeasurementPackage meas_PLICP_pose;
+
       if (ScanCallback(scan, odom_pose))
       {
         // std::chrono::steady_clock::time_point end_time = std::chrono::steady_clock::now();
         // std::chrono::duration<double> time_used = std::chrono::duration_cast<std::chrono::duration<double>>(end_time - start_time);
         // std::cout << "\naaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa: " << time_used.count() << " s " << std::endl;
         // std::chrono::steady_clock::time_point start_time = std::chrono::steady_clock::now();
-
         ROS_DEBUG("scan processed");
 
         // std::cerr << "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa" << std::endl;
@@ -947,11 +952,11 @@ SlamGMapping::laserCallback(const sensor_msgs::LaserScan::ConstPtr& scan)
         // std::cerr << output_.x[0] << "  " << output_.x[1] << "  " << output_.x[2] << std::endl;
         // std::cerr << "ddddddddddddddddddddddddddddd" << std::endl;
 
+        /////////     ORB and PLICP　current　change by GMapping::OrientedPoint type   /////////
         lcp_current_pose.x = last_odom_pose.x + output_.x[0];
         lcp_current_pose.y = last_odom_pose.y + output_.x[1];
         lcp_current_pose.theta = last_odom_pose.theta + output_.x[2];
-        last_odom_pose = odom_pose;
-
+        
         ORB_current_change.x = srv.response.x - last_ORB_pose.x;
         ORB_current_change.y = srv.response.y - last_ORB_pose.y;
         ORB_current_change.theta = srv.response.z - last_ORB_pose.theta;
@@ -960,18 +965,58 @@ SlamGMapping::laserCallback(const sensor_msgs::LaserScan::ConstPtr& scan)
         last_ORB_pose.y = srv.response.y;
         last_ORB_pose.theta = srv.response.z;
 
-        std::cerr << "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa" << std::endl;
-        // std::cerr << odom_pose.x << "  " << odom_pose.y << "  " << odom_pose.theta << std::endl;
-        std::cerr << output_.x[0] << "  " << output_.x[1] << "  " << output_.x[2] << std::endl;
-        std::cerr << ORB_current_change.x << "  " << ORB_current_change.y << "  " << ORB_current_change.theta << std::endl;
+        // std::cerr << "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa" << std::endl;
+        // // std::cerr << odom_pose.x << "  " << odom_pose.y << "  " << odom_pose.theta << std::endl;
+        // std::cerr << output_.x[0] << "  " << output_.x[1] << "  " << output_.x[2] << std::endl;
+        // std::cerr << ORB_current_change.x << "  " << ORB_current_change.y << "  " << ORB_current_change.theta << std::endl;
+        // std::cerr << output_.x[2] << "     " << ORB_current_change.theta << std::endl;
 
-        ROS_DEBUG("new best pose: %.3f %.3f %.3f", lcp_current_pose.x, lcp_current_pose.y, lcp_current_pose.theta);
+
+        // put ORB pose variety and PLICP pose variety into Unscented Kalman Filter
+        meas_ORB_pose.raw_measurements_ = VectorXd(2);
+        meas_ORB_pose.raw_measurements_ << ORB_current_change.x, ORB_current_change.y;
+        // meas_ORB_pose.raw_measurements_ << srv.response.x, srv.response.y;
+
+        meas_ORB_pose.timestamp_ = srv.request.sec * 1000000000 + srv.request.nsec;
+        meas_ORB_pose.sensor_type_ = MeasurementPackage::LASER;
+
+        meas_PLICP_pose.raw_measurements_ = VectorXd(2);
+        meas_PLICP_pose.raw_measurements_ << lcp_current_pose.x, lcp_current_pose.y;
+        meas_PLICP_pose.timestamp_ = srv.request.sec * 1000000000 + srv.request.nsec;
+        meas_PLICP_pose.sensor_type_ = MeasurementPackage::LASER;
+
+        // std::cerr << "aaaaaaaaaaaaaaaaaaaaaaaaaaaa" << std::endl;
+
+        bool flag_orb, flag_plicp;
+        flag_orb = orb_ukf.ProcessMeasurement(meas_ORB_pose);
+        flag_plicp = plicp_ukf.ProcessMeasurement(meas_PLICP_pose);
+
+        // std::cerr << orb_ukf.x_ << std::endl;
+
+        if (flag_orb == true && flag_plicp == true)
+        {
+          std::cerr << "asasasasasasasasasasasasasasasaasas" << std::endl;
+          // save the residual
+          SaveResidual();
+          HypothesisTesting();
+          std::cerr << ORB_weight(0) << "  " << PLICP_weight(0) << std::endl;
+          std::cerr << ORB_weight(1) << "  " << PLICP_weight(1) << std::endl;
+        }
+        
+        best_pose.x = last_odom_pose.x + ORB_weight(0)*ORB_current_change.x + PLICP_weight(0)*output_.x[0];
+        best_pose.y = last_odom_pose.y + ORB_weight(1)*ORB_current_change.y + PLICP_weight(1)*output_.x[1];
+        best_pose.theta = last_odom_pose.theta + ORB_weight(2)*ORB_current_change.theta + PLICP_weight(2)*output_.x[2];
+
+        last_odom_pose = odom_pose;
+
+
+        ROS_DEBUG("new best pose: %.3f %.3f %.3f", best_pose.x, best_pose.y, lcp_current_pose.theta);
         ROS_DEBUG("odom pose: %.3f %.3f %.3f", odom_pose.x, odom_pose.y, odom_pose.theta);
         ROS_DEBUG("correction: %.3f %.3f %.3f", output_.x[0], output_.x[1], output_.x[2]);
 
         // laser_to_map : lidar pose in map frame
         // odom_to_laser : lidar pose in odom frame
-        tf::Transform laser_to_map = tf::Transform(tf::createQuaternionFromRPY(0, 0, lcp_current_pose.theta), tf::Vector3(lcp_current_pose.x, lcp_current_pose.y, 0.0)).inverse();
+        tf::Transform laser_to_map = tf::Transform(tf::createQuaternionFromRPY(0, 0, best_pose.theta), tf::Vector3(best_pose.x, best_pose.y, 0.0)).inverse();
         tf::Transform odom_to_laser = tf::Transform(tf::createQuaternionFromRPY(0, 0, odom_pose.theta), tf::Vector3(odom_pose.x, odom_pose.y, 0.0));
 
         // map_to_odom_ : compute relationship between odom frame and map frame
@@ -1026,7 +1071,6 @@ SlamGMapping::updateMap(const sensor_msgs::LaserScan& scan)
   matcher.setLaserParameters(scan.ranges.size(), &(laser_angles_[0]),
                              gsp_laser_->getPose());
 
-  // std::cerr << scan.ranges.size() << " " << laser_angles_[0] <<  std::endl;
   matcher.setlaserMaxRange(maxRange_);
   matcher.setusableRange(maxUrange_);
   matcher.setgenerateMap(true);
@@ -1066,7 +1110,6 @@ SlamGMapping::updateMap(const sensor_msgs::LaserScan& scan)
               n->pose.x,
               n->pose.y,
               n->pose.theta);
-    // std::cerr << n->pose.x << " " << n->pose.y << " " << n->pose.theta << std::endl;
 
     if(!n->reading)
     {
@@ -1354,6 +1397,19 @@ void SlamGMapping::InitICPParams()
     //     resolution_ = 0.05;
     // if (!private_node_.getParam("occ_thresh", occ_thresh_))
     //     occ_thresh_ = 0.25;
+    ORB_weight = VectorXd(3);
+    PLICP_weight = VectorXd(3);
+    
+    ORB_weight << 0.5, 0.5, 0.5;
+    PLICP_weight << 0.5, 0.5, 0.5;
+
+    residual_sum = 10;
+
+    count_res = 0;
+    sum_res = 0;
+
+    ORB_res = MatrixXd::Zero(residual_sum, 2);
+    PLICP_res= MatrixXd::Zero(residual_sum, 2);
 }
 
 // compute PL-ICP compute the transform
@@ -1444,7 +1500,6 @@ void SlamGMapping::publishMap(const sensor_msgs::LaserScan& scan)
       n;
       n = n->parent)
   {
-    // std::cerr << n->pose.x << " " << n->pose.y << " " << n->pose.theta << std::endl;
     ROS_DEBUG("  %.3f %.3f %.3f",
               n->pose.x,
               n->pose.y,
@@ -1459,7 +1514,6 @@ void SlamGMapping::publishMap(const sensor_msgs::LaserScan& scan)
     matcher.registerScan(smap, n->pose, &((*n->reading)[0]));
 
   }
-  // std::cerr << "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx" << std::endl;
 
   // the map may have expanded, so resize ros message as well
   if(map_.map.info.width != (unsigned int) smap.getMapSizeX() || map_.map.info.height != (unsigned int) smap.getMapSizeY()) {
@@ -1512,3 +1566,98 @@ void SlamGMapping::publishMap(const sensor_msgs::LaserScan& scan)
   sstm_.publish(map_.map.info);
 }
 
+
+
+void SlamGMapping::SaveResidual()
+{
+  if (sum_res < residual_sum)
+    sum_res++;
+    
+  ORB_res(count_res, 0) = orb_ukf.y_(0);
+  ORB_res(count_res, 1) = orb_ukf.y_(1);
+
+  PLICP_res(count_res, 0) = plicp_ukf.y_(0);
+  PLICP_res(count_res, 1) = plicp_ukf.y_(1);
+
+  count_res++;
+
+  if (count_res > 9)
+    count_res = 0;
+
+}
+
+void SlamGMapping::HypothesisTesting()
+{
+  VectorXd orb_avg = VectorXd::Zero(2);
+  VectorXd plicp_avg = VectorXd::Zero(2);
+
+  for (int i=0; i<sum_res; i++)
+  {
+    orb_avg(0) += ORB_res(i, 0);
+    orb_avg(1) += ORB_res(i, 1);
+
+    plicp_avg(0) += PLICP_res(i, 0);
+    plicp_avg(1) += PLICP_res(i, 1);
+  }
+
+  orb_avg(0) = orb_avg(0)/sum_res;
+  orb_avg(1) = orb_avg(1)/sum_res;
+
+  plicp_avg(0) = plicp_avg(0)/sum_res;
+  plicp_avg(1) = plicp_avg(1)/sum_res;
+
+  VectorXd orb_std = VectorXd::Zero(2);
+  VectorXd plicp_std = VectorXd::Zero(2);
+
+  for (int i=0; i<sum_res; i++)
+  {
+    orb_std(0) += (ORB_res(i, 0) - orb_avg(0)) * (ORB_res(i, 0) - orb_avg(0));
+    orb_std(1) += (ORB_res(i, 1) - orb_avg(1)) * (ORB_res(i, 1) - orb_avg(1));
+
+    plicp_std(0) += (PLICP_res(i, 0) - plicp_avg(0)) * (PLICP_res(i, 0) - plicp_avg(0));
+    plicp_std(1) += (PLICP_res(i, 1) - plicp_avg(1)) * (PLICP_res(i, 1) - plicp_avg(1));
+  }
+
+  orb_std(0) = sqrt(orb_std(0)/sum_res);
+  orb_std(1) = sqrt(orb_std(1)/sum_res);
+
+  plicp_std(0) = sqrt(plicp_std(0)/sum_res);
+  plicp_std(1) = sqrt(plicp_std(1)/sum_res);
+
+  VectorXd orb_z = VectorXd::Zero(2);
+  VectorXd plicp_z = VectorXd::Zero(2);
+
+  float sqrt_sum = sqrt(sum_res);
+
+  for (int i=0; i<sum_res; i++)
+  {
+    orb_z(0) += (ORB_res(i, 0) - orb_avg(0)) / (orb_std(0)/sqrt_sum);
+    orb_z(1) += (ORB_res(i, 1) - orb_avg(1)) / (orb_std(1)/sqrt_sum);
+
+
+    plicp_z(0) += (PLICP_res(i, 0) - plicp_avg(0)) / (plicp_std(0)/sqrt_sum);
+    plicp_z(1) += (PLICP_res(i, 1) - plicp_avg(1)) / (plicp_std(1)/sqrt_sum);
+  }
+
+  // std::cerr << orb_z(0) << "  " << orb_z(1) << std::endl;
+  // std::cerr << plicp_z(0) << "  " << plicp_z(1) << std::endl;
+
+  AdjustWeight(orb_z, plicp_z, 0);
+  AdjustWeight(orb_z, plicp_z, 1);
+
+}
+
+void SlamGMapping::AdjustWeight(VectorXd &a, VectorXd &b, int x)
+{
+  // weight can't lower than 0
+  if ( abs(a(x)) >= abs(b(x)) && ORB_weight(x) > 0)
+  {
+    PLICP_weight(x) += 0.01;
+    ORB_weight(x) -= 0.01;
+  }
+  else if( abs(a(x)) < abs(b(x)) && PLICP_weight(x) > 0)
+  {
+    PLICP_weight(x) -= 0.01;
+    ORB_weight(x) += 0.01;
+  }
+}

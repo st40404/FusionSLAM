@@ -51,6 +51,13 @@
 #include <geometry_msgs/PointStamped.h>
 // add Camera service
 #include "all_process/CameraPose.h"
+// add UKF library
+// #include "Eigen/Dense"
+// #include "ukf.h"
+// #include "ground_truth_package.h"
+// #include "measurement_package.h"
+#include "ukf.h"
+#include "tools.h"
 
 
 class SlamGMapping
@@ -96,17 +103,44 @@ class SlamGMapping
     // using PLICP method
     bool ScanCallback(const sensor_msgs::LaserScan::ConstPtr& scan, GMapping::OrientedPoint& gmap_pose);
 
-
     // subscribe ORB pose
     ros::Subscriber sub;
     void SubsPose(const geometry_msgs::PointStamped::ConstPtr &pose);
     ros::ServiceClient CamPose_client;
     all_process::CameraPose srv;
 
-
-
+    // save last period pose by odom and ORB
     GMapping::OrientedPoint last_odom_pose;
     GMapping::OrientedPoint last_ORB_pose;
+
+    // set two Unscented-Kalman-Filter of ORB and PLICP
+    UKF orb_ukf;
+    UKF plicp_ukf;
+
+    // save each model's residual
+    void SaveResidual();
+    int residual_sum;
+
+    // container to save recent residual value (size: residual_sum * 2)
+    MatrixXd ORB_res;
+    MatrixXd PLICP_res;
+
+    int count_res;
+    int sum_res;
+
+    // set pose calculate by Hypothesis Testing 
+    GMapping::OrientedPoint hypothesis_pose;
+    void HypothesisTesting();
+
+    VectorXd ORB_weight;
+    VectorXd PLICP_weight;
+    
+    // according to residual to adjust weight
+    void AdjustWeight(VectorXd &a, VectorXd &b, int x);
+
+
+
+
     bool first_time = true;
   private:
     ros::NodeHandle node_;

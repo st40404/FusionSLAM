@@ -19,16 +19,16 @@ include_directories(src
 
 catkin_package(INCLUDE_DIRS include)
 
-add_executable(slam_gmapping src/slam_gmapping.cpp src/main.cpp)
+add_executable(slam_gmapping src/slam_gmapping.cpp src/main.cpp src/ukf.cpp src/tools.cpp)
 target_link_libraries(slam_gmapping ${Boost_LIBRARIES} ${catkin_LIBRARIES} ${csm_LIBRARIES})
 if(catkin_EXPORTED_TARGETS)
   add_dependencies(slam_gmapping ${catkin_EXPORTED_TARGETS} ${csm_EXPORTED_TARGETS} )
 endif()
 
-add_library(slam_gmapping_nodelet src/slam_gmapping.cpp src/nodelet.cpp)
+add_library(slam_gmapping_nodelet src/slam_gmapping.cpp src/nodelet.cpp src/ukf.cpp src/tools.cpp)
 target_link_libraries(slam_gmapping_nodelet ${catkin_LIBRARIES})
 
-add_executable(slam_gmapping_replay src/slam_gmapping.cpp src/replay.cpp)
+add_executable(slam_gmapping_replay src/slam_gmapping.cpp src/replay.cpp src/ukf.cpp src/tools.cpp)
 target_link_libraries(slam_gmapping_replay ${Boost_LIBRARIES} ${catkin_LIBRARIES} ${csm_LIBRARIES})
 if(catkin_EXPORTED_TARGETS)
   add_dependencies(slam_gmapping_replay ${catkin_EXPORTED_TARGETS} ${csm_EXPORTED_TARGETS})

@@ -302,7 +302,7 @@ void ImageGrabber::PublishCamPose()
 bool ImageGrabber::SurvicePose(  all_process::CameraPose::Request  &req,
                                  all_process::CameraPose::Response &res)
 {
-//     std::cerr << "zzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzz" << std::endl;
+    // std::cerr << "zzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzz" << std::endl;
 //     std::cerr << PreviousPose.size() << std::endl;
     // std::cerr << req.sec << "  " << req.nsec << std::endl;
     
@@ -317,8 +317,8 @@ bool ImageGrabber::SurvicePose(  all_process::CameraPose::Request  &req,
             PreviousPose.clear();
             return true;
         }
-    if (PreviousPose.size() >= 1000)
-        PreviousPose.clear();
+    // if (PreviousPose.size() >= 1000)
+    //     PreviousPose.clear();
 
     return false;   
 }
