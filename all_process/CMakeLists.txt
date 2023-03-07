@@ -2,7 +2,7 @@ cmake_minimum_required(VERSION 3.0.2)
 project(all_process)
 
 ## Compile as C++11, supported in ROS Kinetic and newer
-# add_compile_options(-std=c++11)
+add_compile_options(-std=c++11)
 
 ## Find catkin macros and libraries
 ## if COMPONENTS list like find_package(catkin REQUIRED COMPONENTS xyz)
@@ -105,13 +105,13 @@ generate_messages(
 ## LIBRARIES: libraries you create in this project that dependent projects also need
 ## CATKIN_DEPENDS: catkin_packages dependent projects also need
 ## DEPENDS: system dependencies of this project that dependent projects also need
-#catkin_package(
+catkin_package(
 #  INCLUDE_DIRS include
 #  LIBRARIES all_process
 #  CATKIN_DEPENDS other_catkin_pkg
-#  CATKIN_DEPENDS message_runtime
+  CATKIN_DEPENDS message_runtime
 #  DEPENDS system_lib
-#)
+)
 
 ###########
 ## Build ##
