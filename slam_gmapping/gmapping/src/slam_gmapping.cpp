@@ -705,8 +705,6 @@ SlamGMapping::ScanCallback(const sensor_msgs::LaserScan::ConstPtr& scan, GMappin
   LaserScanToLDP(scan, curr_ldp_scan);
   // compute PL-ICP compute the transform
   ScanMatchWithPLICP(curr_ldp_scan, scan->header.stamp);
-  
-
 
   GMapping::OrientedPoint icp_pose( last_odom_pose.x + output_.x[0],
                                     last_odom_pose.y + output_.x[1],
@@ -840,9 +838,9 @@ SlamGMapping::laserCallback(const sensor_msgs::LaserScan::ConstPtr& scan)
       ROS_DEBUG("scan processed");
 
       std::cerr << "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa" << std::endl;
-      std::cerr << odom_pose.x << "  " << odom_pose.y << "  " << odom_pose.theta << std::endl;
+      // std::cerr << odom_pose.x << "  " << odom_pose.y << "  " << odom_pose.theta << std::endl;
       // std::cerr <<  last_odom_pose.x + output_.x[0] << "  " <<  last_odom_pose.y + output_.x[1] << "  " <<  last_odom_pose.theta + output_.x[2] << std::endl;
-      // std::cerr << output_.x[0] << "  " << output_.x[1] << "  " << output_.x[2]*180/3.14 << std::endl;
+      std::cerr << output_.x[0] << "  " << output_.x[1] << "  " << output_.x[2]*180/M_PI << std::endl;
       // std::cerr << "ddddddddddddddddddddddddddddd" << std::endl;
 
       lcp_current_pose.x = last_odom_pose.x + output_.x[0];
@@ -970,6 +968,14 @@ SlamGMapping::laserCallback(const sensor_msgs::LaserScan::ConstPtr& scan)
         // std::cerr << output_.x[0] << "  " << output_.x[1] << "  " << output_.x[2] << std::endl;
         // std::cerr << ORB_current_change.x << "  " << ORB_current_change.y << "  " << ORB_current_change.theta << std::endl;
         // std::cerr << output_.x[2] << "     " << ORB_current_change.theta << std::endl;
+
+  
+
+      // 4.0834537461359129e-02, 2.3381139673122261e-03, 9.9916318675849614e-01, -8.0947251797383379e-02,
+      // -9.9875604915163929e-01, -2.8544632023199224e-02, 4.0884694760617644e-02, 2.8935301089702367e-02,
+      // 2.8616338573017236e-02, -9.9958978446447555e-01, 1.1695986227867996e-03, 1.7895980194961822e-01,
+      // 0., 0., 0., 1.
+
 
 
         // put ORB pose variety and PLICP pose variety into Unscented Kalman Filter
@@ -1259,43 +1265,59 @@ void SlamGMapping::LaserScanToLDP(const sensor_msgs::LaserScan::ConstPtr &scan_m
 }
 
 // initialize PL-ICP parameters
+// http://wiki.ros.org/canonical_scan_matcher
 void SlamGMapping::InitICPParams()
 {
     // **** CSM 的参数 - comments copied from algos.h (by Andrea Censi)
 
     // Maximum angular displacement between scans
     if (!private_node_.getParam("max_angular_correction_deg", input_.max_angular_correction_deg))
-        input_.max_angular_correction_deg = 360.0;
+        input_.max_angular_correction_deg = 45.0;
+        // input_.max_angular_correction_deg = 360.0;
 
     // Maximum translation between scans (m)
+    // according to lidar, if lidar have more accuracy, the value of max_linear_correction need to be lower
     if (!private_node_.getParam("max_linear_correction", input_.max_linear_correction))
-        input_.max_linear_correction = 1.0;
+        input_.max_linear_correction = 0.5;
 
     // Maximum ICP cycle iterations
     if (!private_node_.getParam("max_iterations", input_.max_iterations))
         input_.max_iterations = 10;
 
+    // epsilon_xy and epsilon_theta
+    // when we finding the corresponding point
+    // when the point xy distance / angle lower than the value
+    // and this point maybe can be the correspond point
+
     // A threshold for stopping (m)
     if (!private_node_.getParam("epsilon_xy", input_.epsilon_xy))
+        // input_.epsilon_xy = 0.001;
         input_.epsilon_xy = 0.000001;
 
     // A threshold for stopping (rad)
     if (!private_node_.getParam("epsilon_theta", input_.epsilon_theta))
+        // input_.epsilon_theta = 0.00872;
         input_.epsilon_theta = 0.000001;
 
     // Maximum distance for a correspondence to be valid
+    // when the scan point finding the correspondence point, this param is to control the finding range 
+    // if the finding range too big, it will effect the accuracy
+    // if the finding range too small, maybe it can't find the point
     if (!private_node_.getParam("max_correspondence_dist", input_.max_correspondence_dist))
-        input_.max_correspondence_dist = 1.0;
+        input_.max_correspondence_dist = 0.5;
+        // input_.max_correspondence_dist = 1.0;
 
     // Noise in the scan (m)
     if (!private_node_.getParam("sigma", input_.sigma))
         input_.sigma = 0.010;
 
     // Use smart tricks for finding correspondences.
+    // if value of use_corr_tricks is 1, means use smart tricks to find correspondences (effect spead)
     if (!private_node_.getParam("use_corr_tricks", input_.use_corr_tricks))
         input_.use_corr_tricks = 1;
 
     // Restart: Restart if error is over threshold
+    // Restart: If 1, restart if error is over threshold
     if (!private_node_.getParam("restart", input_.restart))
         input_.restart = 0;
 
@@ -1317,13 +1339,15 @@ void SlamGMapping::InitICPParams()
 
     // Number of neighbour rays used to estimate the orientation
     if (!private_node_.getParam("orientation_neighbourhood", input_.orientation_neighbourhood))
-        input_.orientation_neighbourhood = 20;
+        input_.orientation_neighbourhood = 10;
+        // input_.orientation_neighbourhood = 20;
 
     // If 0, it's vanilla ICP
     if (!private_node_.getParam("use_point_to_line_distance", input_.use_point_to_line_distance))
         input_.use_point_to_line_distance = 1;
 
     // Discard correspondences based on the angles
+    // If 1, discard correspondences based on the angles
     if (!private_node_.getParam("do_alpha_test", input_.do_alpha_test))
         input_.do_alpha_test = 0;
 
@@ -1365,7 +1389,7 @@ void SlamGMapping::InitICPParams()
     if (!private_node_.getParam("do_compute_covariance", input_.do_compute_covariance))
         input_.do_compute_covariance = 0;
 
-    // Checks that find_correspondences_tricks gives the right answer
+    // If 1, Checks that find_correspondences_tricks gives the right answer
     if (!private_node_.getParam("debug_verify_tricks", input_.debug_verify_tricks))
         input_.debug_verify_tricks = 0;
 

@@ -90,7 +90,7 @@ class SlamGMapping
     LDP prev_ldp_scan_;
 
     // change method : 0 = gmapping, 1 = PLICP, 2 = PLICP+ORB
-    int mymethod = 2;
+    int mymethod = 1;
 
     // initialize PLICP parameters
     void InitICPParams();

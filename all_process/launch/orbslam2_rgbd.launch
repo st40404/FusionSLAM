@@ -26,9 +26,9 @@
     />
 
     <!-- open node: orb_slam -->
-    <node pkg="orbslam2_ros"
+    <!-- <node pkg="orbslam2_ros"
         name="RGBD"
         type="RGBD"
-        args= "$(arg path_to_vocabulary) $(arg path_to_settings)" />
+        args= "$(arg path_to_vocabulary) $(arg path_to_settings)" /> -->
 
 </launch>

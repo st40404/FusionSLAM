@@ -58,6 +58,7 @@ typedef pcl::PointCloud<pcl::PointXYZ> PointCloud;
 using namespace std;
 #define PI 3.14159265
 
+#include <Eigen/Core>
 
 class ImageGrabber
 {
@@ -91,6 +92,12 @@ public:
     std_msgs::Float64MultiArray pose;
     // set pose varity setting
     void SetPose();
+
+    // initial trasnport matrix
+    void Init();
+
+    // trasnport matrix from camera to lidar
+    cv::Mat TransCtoL;
 
     // save lidar stamp
     ros::Time current_lidar_time_;
@@ -144,6 +151,8 @@ int main(int argc, char **argv)
     // set publish message of member pose
     igb.SetPose();
 
+    // set transpform matrix lidar and camera
+    igb.Init();
 
     // original code (in 2021 project)
     // message_filters::Subscriber<sensor_msgs::Image> rgb_sub(nh, "/cam_AGV/color/image_raw", 1);
@@ -187,6 +196,9 @@ void ImageGrabber::callback()
     CurrentFrame = mpSLAM->GetmpTracker();
     CurrentDepth = mpSLAM->GetmvDepth();
     CurrentPose = mpSLAM->Getpose();
+    // CurrentPose = mpSLAM->TrackRGBD();
+
+
 }
 
 // publish point clouds
@@ -211,13 +223,11 @@ float numz = 0.0;
 // publish camera pose
 void ImageGrabber::PublishCamPose()
 {
-    // float* matData = (float*)CurrentPose.data;
-   
     cv::Mat TransP = cv::Mat::eye(4,4,CV_32F);
     // TransP.at<float>(0, 3) = -2.47;
     // TransP.at<float>(1, 3) = -3.72;
     // cv::Mat TransX = cv::Mat::eye(4,4,CV_32F);
-    cv::Mat TransZ = cv::Mat::eye(4,4,CV_32F);
+    // cv::Mat TransZ = cv::Mat::eye(4,4,CV_32F);
 
     ///////     project use    //////
     // int param = 180;
@@ -250,26 +260,24 @@ void ImageGrabber::PublishCamPose()
 
 
     /////   thesis    //////
-    int rotate = 90;
-    TransZ.at<float>(0, 0) = cos ( rotate * PI / 180.0 );
-    TransZ.at<float>(0, 1) = -1*sin ( rotate * PI / 180.0 );
-    TransZ.at<float>(1, 0) = sin ( rotate * PI / 180.0 );
-    TransZ.at<float>(1, 1) = cos ( rotate * PI / 180.0 );
 
-    TransP = TransZ*CurrentPose;
+    // my opinion: this part change camera coordinate into camera frame
+    // but I use extrinsic matrix transform, so I don't need to change to camera frame
+    // cv::Mat Rwc = CurrentPose.rowRange(0,3).colRange(0,3).t(); // Rotation information
+    // cv::Mat twc = -Rwc*CurrentPose.rowRange(0,3).col(3); // translation information
 
-    float angularZ = atan( TransP.at<float>(1, 2)/TransP.at<float>(2, 2) ) * 180.0 / PI;
+    float angularZ = atan( CurrentPose.at<float>(0, 2)/CurrentPose.at<float>(2, 2) ) * 180.0 / PI;
 
-    if ( TransP.at<float>(1, 2) > 0 &&  TransP.at<float>(2, 2) > 0 )
+    if ( CurrentPose.at<float>(0, 2) > 0 &&  CurrentPose.at<float>(2, 2) > 0 )
         angularZ = angularZ ;
 
-    else if ( TransP.at<float>(1, 2) > 0 &&  TransP.at<float>(2, 2) < 0 )
+    else if ( CurrentPose.at<float>(0, 2) > 0 &&  CurrentPose.at<float>(2, 2) < 0 )
         angularZ = 180 + angularZ ;
 
-    else if ( TransP.at<float>(1, 2) < 0 &&  TransP.at<float>(2, 2) < 0)
+    else if ( CurrentPose.at<float>(0, 2) < 0 &&  CurrentPose.at<float>(2, 2) < 0)
         angularZ = 180 + angularZ ;
 
-    else if ( TransP.at<float>(1, 2) < 0 &&  TransP.at<float>(2, 2) > 0 )
+    else if ( CurrentPose.at<float>(0, 2) < 0 &&  CurrentPose.at<float>(2, 2) > 0 )
         angularZ = angularZ ;
 
     if ( angularZ > 180 )
@@ -277,16 +285,20 @@ void ImageGrabber::PublishCamPose()
     else if ( angularZ < -180 )
         angularZ += 360;
 
+
+    TransP = TransCtoL*CurrentPose;
+
     // geometry_msgs::Twist msg;
     // msg.linear.x = TransP.at<float>(0, 3)*100;
     // msg.linear.y = TransP.at<float>(0, 7)*100;
     // msg.angular.z = angularZ;
 
+    
     geometry_msgs::PointStamped msg;
     // msg.header.stamp = ros::Time::now();
     msg.header.stamp = current_lidar_time_;
     msg.point.x = TransP.at<float>(0, 3)*100;
-    msg.point.y = TransP.at<float>(0, 7)*100;
+    msg.point.y = TransP.at<float>(1, 3)*100;
     msg.point.z = angularZ;
 
     // save every previous poase untill client send the request
@@ -302,15 +314,9 @@ void ImageGrabber::PublishCamPose()
 bool ImageGrabber::SurvicePose(  all_process::CameraPose::Request  &req,
                                  all_process::CameraPose::Response &res)
 {
-    // std::cerr << "zzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzz" << std::endl;
-//     std::cerr << PreviousPose.size() << std::endl;
-    // std::cerr << req.sec << "  " << req.nsec << std::endl;
-    
     for ( int i=0; i<=PreviousPose.size(); i++)
         if (req.sec == PreviousPose[i].header.stamp.sec && req.nsec == PreviousPose[i].header.stamp.nsec)
         {
-            // std::cerr << "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa" << std::endl;
-            // std::cerr << PreviousPose[i].point.x << "  " << PreviousPose[i].point.y << "  " << PreviousPose[i].point.z << std::endl;
             res.x = PreviousPose[i].point.x;
             res.y = PreviousPose[i].point.y;
             res.z = PreviousPose[i].point.z;
@@ -338,6 +344,77 @@ void ImageGrabber::SetPose()
     pose.layout.data_offset = 0;
 }
 
+// set transform matrix from camera to lidar
+void ImageGrabber::Init()
+{
+    // Eigen::Matrix4d Tlc;
+   
+    // Tlc(0, 0) = 4.0834537461359129e-02;
+    // Tlc(0, 1) = 2.3381139673122261e-03;
+    // Tlc(0, 2) = 9.9916318675849614e-01;
+    // Tlc(0, 3) = -8.0947251797383379e-02;
+    // Tlc(1, 0) = -9.9875604915163929e-01;
+    // Tlc(1, 1) = -2.8544632023199224e-02;
+    // Tlc(1, 2) = 4.0884694760617644e-02;
+    // Tlc(1, 3) = 2.8935301089702367e-02;
+    // Tlc(2, 0) = 2.8616338573017236e-02;
+    // Tlc(2, 1) = -9.9958978446447555e-01;
+    // Tlc(2, 2) = 1.1695986227867996e-03;
+    // Tlc(2, 3) = 1.7895980194961822e-01;
+    // Tlc(3, 0) = 0;
+    // Tlc(3, 1) = 0;
+    // Tlc(3, 2) = 0;
+    // Tlc(3, 3) = 1;
+
+    // Eigen::Matrix3d Rlc = Tlc.block(0,0,3,3);         // lidar to camera rotate matrix
+    // Eigen::Vector3d tlc(Tlc(0,3),Tlc(1,3),Tlc(2,3));  // lidar to camera transform matrix
+
+    // Eigen::Matrix3d Rcl = Rlc.transpose();            // camera to lidar rotate matrix
+    // Eigen::Vector3d tcl = - Rcl * tlc;                // camera to lidar transform matrix
+
+    TransCtoL = cv::Mat::eye(4,4,CV_32F);
+    TransCtoL.at<float>(0, 0) = 4.0834537461359129e-02;
+    TransCtoL.at<float>(0, 1) = 2.3381139673122261e-03;
+    TransCtoL.at<float>(0, 2) = 9.9916318675849614e-01;
+    TransCtoL.at<float>(0, 3) = -8.0947251797383379e-02;
+    TransCtoL.at<float>(1, 0) = -9.9875604915163929e-01;
+    TransCtoL.at<float>(1, 1) = -2.8544632023199224e-02;
+    TransCtoL.at<float>(1, 2) = 4.0884694760617644e-02;
+    TransCtoL.at<float>(1, 3) = 2.8935301089702367e-02;
+    TransCtoL.at<float>(2, 0) = 2.8616338573017236e-02;
+    TransCtoL.at<float>(2, 1) = -9.9958978446447555e-01;
+    TransCtoL.at<float>(2, 2) = 1.1695986227867996e-03;
+    TransCtoL.at<float>(2, 3) = 1.7895980194961822e-01;
+    TransCtoL.at<float>(3, 0) = 0;
+    TransCtoL.at<float>(3, 1) = 0;
+    TransCtoL.at<float>(3, 2) = 0;
+    TransCtoL.at<float>(3, 3) = 1;
+
+    cv::Mat TransZ = cv::Mat::eye(4,4,CV_32F);
+    int rotate_z = 180;
+    TransZ.at<float>(0, 0) = cos ( rotate_z * PI / 180.0 );
+    TransZ.at<float>(0, 1) = -1*sin ( rotate_z * PI / 180.0 );
+    TransZ.at<float>(1, 0) = sin ( rotate_z * PI / 180.0 );
+    TransZ.at<float>(1, 1) = cos ( rotate_z * PI / 180.0 );
+
+    // cv::Mat TransX = cv::Mat::eye(4,4,CV_32F);
+    // int rotate_x = 180;
+    // TransX.at<float>(1, 1) = cos ( rotate_x * PI / 180.0 );
+    // TransX.at<float>(1, 2) = -1*sin ( rotate_x * PI / 180.0 );
+    // TransX.at<float>(2, 1) = sin ( rotate_x * PI / 180.0 );
+    // TransX.at<float>(2, 2) = cos ( rotate_x * PI / 180.0 );
+
+    // cv::Mat TransY = cv::Mat::eye(4,4,CV_32F);
+    // int rotate_y = 180;
+    // TransY.at<float>(2, 2) = cos ( rotate_y * PI / 180.0 );
+    // TransY.at<float>(2, 0) = -1*sin ( rotate_y * PI / 180.0 );
+    // TransY.at<float>(0, 2) = sin ( rotate_y * PI / 180.0 );
+    // TransY.at<float>(0, 0) = cos ( rotate_y * PI / 180.0 );
+
+    TransCtoL = TransZ*TransCtoL;
+    TransCtoL.at<float>(0, 3) = -1*TransCtoL.at<float>(0, 3);
+    TransCtoL.at<float>(1, 3) = -1*TransCtoL.at<float>(1, 3);
+}
 
 // void ImageGrabber::GrabRGBD(const sensor_msgs::ImageConstPtr& msgRGB,const sensor_msgs::ImageConstPtr& msgD)
 void ImageGrabber::GrabRGBD(const sensor_msgs::ImageConstPtr& msgRGB,const sensor_msgs::ImageConstPtr& msgD, const sensor_msgs::LaserScanConstPtr &msgSCAN)
