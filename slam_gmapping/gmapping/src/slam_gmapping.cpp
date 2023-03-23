@@ -910,6 +910,8 @@ SlamGMapping::laserCallback(const sensor_msgs::LaserScan::ConstPtr& scan)
         last_ORB_pose.y = srv.response.y;
         last_ORB_pose.theta = srv.response.z;
 
+
+        // UKF params
         MeasurementPackage meas_init_pose;
         meas_init_pose.raw_measurements_ = VectorXd(2);
         meas_init_pose.raw_measurements_ << 0, 0;

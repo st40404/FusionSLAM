@@ -125,6 +125,7 @@ class SlamGMapping
     MatrixXd ORB_res;
     MatrixXd PLICP_res;
 
+    // the counter and sum of the residual
     int count_res;
     int sum_res;
 
