@@ -64,6 +64,9 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     libegl1-mesa-dev libwayland-dev libxkbcommon-dev wayland-protocols \
     libeigen3-dev libblas-dev liblapack-dev \
     ros-melodic-pcl-conversions ros-melodic-pcl-ros ros-melodic-perception-pcl ros-melodic-perception \
+    # install cuda for ORBSLAM
+    nvidia-cuda-toolkit \
+    libopencv-dev \
     # add rule file for lidar permission
     && mkdir -p /etc/udev/rules.d \
     apt-get clean \

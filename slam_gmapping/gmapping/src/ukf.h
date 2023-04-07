@@ -63,9 +63,11 @@ public:
   int n_x_;
 
   ///* Augmented state dimension
+  // n_aug_ : 擴展向量的維度（狀態向量的維度加上雜訊向量的維度）
   int n_aug_;
 
   //Number of sigma points
+  // n_sig_ : sigma點的數量, 通常設定為 2*n_aug_ + 1, 其中包含中心點
   int n_sig_;
 
   ///* Sigma point spreading parameter
@@ -125,6 +127,9 @@ public:
    * @param meas_package The measurement at k+1
    */
   void UpdateRadar(MeasurementPackage meas_package);
+
+  // set ORBSLAM2 and PLICP param
+  void SetUKFParam(int a);
 };
 
 #endif /* UKF_H */

@@ -164,7 +164,8 @@ int main(int argc, char **argv)
     // sync.registerCallback(boost::bind(&ImageGrabber::GrabRGBD, &igb, _1, _2));
 
     message_filters::Subscriber<sensor_msgs::Image> rgb_sub(nh, "/camera/rgb/image_raw", 5);
-    message_filters::Subscriber<sensor_msgs::Image> depth_sub(nh, "/camera/depth_registered/image_raw", 5);
+    message_filters::Subscriber<sensor_msgs::Image> depth_sub(nh, "/camera/depth/image_raw", 5);
+    // message_filters::Subscriber<sensor_msgs::Image> depth_sub(nh, "/camera/depth_registered/image_raw", 5);
     message_filters::Subscriber<sensor_msgs::LaserScan> scan_sub(nh, "/scan", 5);
 
     typedef message_filters::sync_policies::ApproximateTime<sensor_msgs::Image, sensor_msgs::Image, sensor_msgs::LaserScan> sync_pol;
@@ -193,12 +194,10 @@ int main(int argc, char **argv)
 // get current data from tracker
 void ImageGrabber::callback()
 {
-    CurrentFrame = mpSLAM->GetmpTracker();
+    // CurrentFrame = mpSLAM->GetmpTracker();
     CurrentDepth = mpSLAM->GetmvDepth();
     CurrentPose = mpSLAM->Getpose();
     // CurrentPose = mpSLAM->TrackRGBD();
-
-
 }
 
 // publish point clouds
@@ -216,9 +215,6 @@ void ImageGrabber::PublishPointcloud()
 
     KeyFrame_pub.publish(cloud);
 }
-float numx = 0.0;
-float numy = 0.0;
-float numz = 0.0;
 
 // publish camera pose
 void ImageGrabber::PublishCamPose()
@@ -293,7 +289,12 @@ void ImageGrabber::PublishCamPose()
     // msg.linear.y = TransP.at<float>(0, 7)*100;
     // msg.angular.z = angularZ;
 
+    // std::cerr << "zzzzzzzzzzzzzzzzzzzzzzz" << std::endl;
+    // std::cerr << TransP.at<float>(0, 3)*100 << std::endl;
+    // std::cerr << TransP.at<float>(1, 3)*100 << std::endl;
+    // std::cerr << angularZ << std::endl;
     
+
     geometry_msgs::PointStamped msg;
     // msg.header.stamp = ros::Time::now();
     msg.header.stamp = current_lidar_time_;
@@ -442,6 +443,7 @@ void ImageGrabber::GrabRGBD(const sensor_msgs::ImageConstPtr& msgRGB,const senso
         ROS_ERROR("cv_bridge exception: %s", e.what());
         return;
     }
+
     mpSLAM->TrackRGBD(cv_ptrRGB->image,cv_ptrD->image,cv_ptrRGB->header.stamp.toSec());
 
     // get lidar stamp
@@ -449,7 +451,9 @@ void ImageGrabber::GrabRGBD(const sensor_msgs::ImageConstPtr& msgRGB,const senso
 
     // get current data from tracker and keyframe
     callback();
+
     // publish point cloud and camera pose
     // PublishPointcloud();
     PublishCamPose();
+
 }

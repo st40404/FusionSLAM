@@ -58,6 +58,8 @@ UKF::UKF() {
   // n_x_ = 5;
   // n_aug_ = 7;
   // n_sig_ = 2 * n_aug_ + 1;
+
+  // input amount
   n_x_ = 2;
   n_aug_ = 4;
   n_sig_ = 2 * n_aug_ + 1;
@@ -111,7 +113,8 @@ bool UKF::ProcessMeasurement(MeasurementPackage &meas_package) {
 
     // Set initial state values
     // x_ << 1, 1, 0, 0, 0; //px, py, v, psi, psi_dot
-    x_ << 1, 1; //px, py, v, psi, psi_dot
+    // x_ << 1, 1; //px, py, v, psi, psi_dot
+    x_ << 0, 0; //px, py, v, psi, psi_dot
 
 
 
@@ -141,7 +144,7 @@ bool UKF::ProcessMeasurement(MeasurementPackage &meas_package) {
 
     ///////////////////////////////
 
-
+    //Account for small values in intial measurements
     double px = meas_package.raw_measurements_[0];
     double py = meas_package.raw_measurements_[1];
     x_(0) = (px > EPS) ? px : EPS;
@@ -204,14 +207,6 @@ bool UKF::ProcessMeasurement(MeasurementPackage &meas_package) {
     // std::cerr << "dddddddddddddddddddddddddd" << std::endl;
 
   } 
-  //RADAR update - check to make sure the use_radar_ flag is on and a non-zero measurement is recieved for rho
-  else if (meas_package.sensor_type_ == MeasurementPackage::RADAR && use_radar_ && fabs(meas_package.raw_measurements_[0]) > RHO_EPS) {
-   
-    UpdateRadar(meas_package);
-    //cout << "Using RADAR measurement to update...\n";
-    //cout << "x_: " << x_ << "\n";
-    //cout << "P_: " << P_ << "\n";   
-  }
   else {
 
   	cout << "Skipping update step for Sensor: " << meas_package.sensor_type_ <<"\n";
@@ -424,4 +419,75 @@ void UKF::UpdateRadar(MeasurementPackage meas_package) {
   //Update the state covariance matrix
   P_ = P_ - K*S*K.transpose();  
 
+}
+
+
+void UKF::SetUKFParam(int a)
+{
+  if (a == 1)
+  {
+    // Process noise standard deviation longitudinal acceleration in m/s^2
+    std_a_ = 1; //need to tune
+
+    // Process noise standard deviation yaw acceleration in rad/s^2
+    std_yawdd_ = 0.3; //need to tune
+
+    // Laser measurement noise standard deviation position1 in m
+    std_laspx_ = 0.15;
+
+    // Laser measurement noise standard deviation position2 in m
+    std_laspy_ = 0.15;
+
+    //Initialize and set the process noise matrix
+    Q_ = MatrixXd(2,2);
+    Q_ << std_a_*std_a_, 0, 0, std_yawdd_*std_yawdd_;
+
+    //Initialize the laser sensor transformation matrix
+    // H_laser_ = MatrixXd::Zero(2,5);
+    // H_laser_ << 1,0,0,0,0,
+    //             0,1,0,0,0;
+
+    H_laser_ = MatrixXd::Zero(2,2);
+    H_laser_ << 1,0,
+                0,1;
+
+    //Initialize the laser measurement uncertainty matrix
+    R_laser_ = MatrixXd::Zero(2,2);
+    R_laser_ << std_laspx_*std_laspx_, 0,
+                0, std_laspy_*std_laspy_;
+  }
+
+  if (a == 2)
+  {
+    // Process noise standard deviation longitudinal acceleration in m/s^2
+    std_a_ = 1; //need to tune
+
+    // Process noise standard deviation yaw acceleration in rad/s^2
+    std_yawdd_ = 0.3; //need to tune
+
+    // Laser measurement noise standard deviation position1 in m
+    std_laspx_ = 0.15;
+
+    // Laser measurement noise standard deviation position2 in m
+    std_laspy_ = 0.15;
+
+    //Initialize and set the process noise matrix
+    Q_ = MatrixXd(2,2);
+    Q_ << std_a_*std_a_, 0, 0, std_yawdd_*std_yawdd_;
+
+    //Initialize the laser sensor transformation matrix
+    // H_laser_ = MatrixXd::Zero(2,5);
+    // H_laser_ << 1,0,0,0,0,
+    //             0,1,0,0,0;
+
+    H_laser_ = MatrixXd::Zero(2,2);
+    H_laser_ << 1,0,
+                0,1;
+
+    //Initialize the laser measurement uncertainty matrix
+    R_laser_ = MatrixXd::Zero(2,2);
+    R_laser_ << std_laspx_*std_laspx_, 0,
+                0, std_laspy_*std_laspy_;
+
+  }
 }

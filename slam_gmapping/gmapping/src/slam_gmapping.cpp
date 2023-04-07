@@ -915,8 +915,15 @@ SlamGMapping::laserCallback(const sensor_msgs::LaserScan::ConstPtr& scan)
         MeasurementPackage meas_init_pose;
         meas_init_pose.raw_measurements_ = VectorXd(2);
         meas_init_pose.raw_measurements_ << 0, 0;
+
+        // meas_init_pose.raw_measurements_ = VectorXd(3);
+        // meas_init_pose.raw_measurements_ << 0, 0, 0;
         meas_init_pose.timestamp_ = srv.request.sec * 1000000000 + srv.request.nsec;
         meas_init_pose.sensor_type_ = MeasurementPackage::LASER;
+
+        // init ORBSLAM2 and PLICP parameter
+        orb_ukf.SetUKFParam(1);
+        plicp_ukf.SetUKFParam(2);
 
         got_first_scan_ = orb_ukf.ProcessMeasurement(meas_init_pose);
         got_first_scan_ = plicp_ukf.ProcessMeasurement(meas_init_pose);
@@ -981,15 +988,26 @@ SlamGMapping::laserCallback(const sensor_msgs::LaserScan::ConstPtr& scan)
 
 
         // put ORB pose variety and PLICP pose variety into Unscented Kalman Filter
+        // ORB pose part
         meas_ORB_pose.raw_measurements_ = VectorXd(2);
         meas_ORB_pose.raw_measurements_ << ORB_current_change.x, ORB_current_change.y;
         // meas_ORB_pose.raw_measurements_ << srv.response.x, srv.response.y;
 
+        // meas_ORB_pose.raw_measurements_ = VectorXd(3);
+        // meas_ORB_pose.raw_measurements_ << ORB_current_change.x, ORB_current_change.y, ORB_current_change.theta;
+
         meas_ORB_pose.timestamp_ = srv.request.sec * 1000000000 + srv.request.nsec;
         meas_ORB_pose.sensor_type_ = MeasurementPackage::LASER;
 
+
+        // PLICP pose part
         meas_PLICP_pose.raw_measurements_ = VectorXd(2);
-        meas_PLICP_pose.raw_measurements_ << lcp_current_pose.x, lcp_current_pose.y;
+        meas_PLICP_pose.raw_measurements_ << output_.x[0], output_.x[1];
+        // meas_PLICP_pose.raw_measurements_ << lcp_current_pose.x, lcp_current_pose.y;
+
+        // meas_PLICP_pose.raw_measurements_ = VectorXd(3);
+        // meas_PLICP_pose.raw_measurements_ << output_.x[0], output_.x[1], output_.x[2];
+
         meas_PLICP_pose.timestamp_ = srv.request.sec * 1000000000 + srv.request.nsec;
         meas_PLICP_pose.sensor_type_ = MeasurementPackage::LASER;
 
@@ -1010,10 +1028,14 @@ SlamGMapping::laserCallback(const sensor_msgs::LaserScan::ConstPtr& scan)
           std::cerr << ORB_weight(0) << "  " << PLICP_weight(0) << std::endl;
           std::cerr << ORB_weight(1) << "  " << PLICP_weight(1) << std::endl;
         }
-        
-        best_pose.x = last_odom_pose.x + ORB_weight(0)*ORB_current_change.x + PLICP_weight(0)*output_.x[0];
-        best_pose.y = last_odom_pose.y + ORB_weight(1)*ORB_current_change.y + PLICP_weight(1)*output_.x[1];
-        best_pose.theta = last_odom_pose.theta + ORB_weight(2)*ORB_current_change.theta + PLICP_weight(2)*output_.x[2];
+
+        best_pose.x = last_odom_pose.x + ORB_weight(0)*orb_ukf.x_[0] + PLICP_weight(0)*plicp_ukf.x_[0];
+        best_pose.y = last_odom_pose.y + ORB_weight(1)*orb_ukf.x_[1] + PLICP_weight(1)*plicp_ukf.x_[1];
+        // best_pose.theta = last_odom_pose.theta + ORB_weight(2)*orb_ukf.x_[2] + PLICP_weight(2)*plicp_ukf.x_[2];
+      
+        // best_pose.x = last_odom_pose.x + ORB_weight(0)*ORB_current_change.x + PLICP_weight(0)*output_.x[0];
+        // best_pose.y = last_odom_pose.y + ORB_weight(1)*ORB_current_change.y + PLICP_weight(1)*output_.x[1];
+        // best_pose.theta = last_odom_pose.theta + ORB_weight(2)*ORB_current_change.theta + PLICP_weight(2)*output_.x[2];
 
         last_odom_pose = odom_pose;
 

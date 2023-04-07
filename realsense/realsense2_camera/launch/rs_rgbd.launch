@@ -115,7 +115,8 @@ Processing enabled by this node:
   <arg name="sw_registered_processing"        default="false" if="$(arg align_depth)" />
 
   <group ns="$(arg camera)">
-  <remap from="/camera/aligned_depth_to_color/image_raw" to="/camera/depth_registered/image_raw" />
+  <remap from="/camera/aligned_depth_to_color/image_raw" to="/camera/depth/image_raw" />
+  <!-- <remap from="/camera/aligned_depth_to_color/image_raw" to="/camera/depth_registered/image_raw" /> -->
   <remap from="/camera/color/image_raw"                  to="/camera/rgb/image_raw" />
   
     <!-- Launch the camera device nodelet-->
