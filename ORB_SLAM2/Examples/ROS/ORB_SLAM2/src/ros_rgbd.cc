@@ -81,13 +81,16 @@ public:
     // save every previous poase untill client send the request
     vector <geometry_msgs::PointStamped> PreviousPose ;
 
-
+    
     // define CurrentFrame to get 2D(x,y) data from tracker
     vector<cv::KeyPoint> CurrentFrame;
     // define CurrentDepth to get depth(z) from tracker
     vector<float> CurrentDepth;
     // define CurrentPose to get camera pose from keyfram
     cv::Mat CurrentPose;
+    // define CurrentPose to get camera locate from keyfram
+    cv::Mat CurrentLocate;
+
     // define pose to get save camera pose
     std_msgs::Float64MultiArray pose;
     // set pose varity setting
@@ -110,6 +113,9 @@ public:
     // add SurvicePose function of master service for camera pose
     bool SurvicePose(   all_process::CameraPose::Request  &req,
                         all_process::CameraPose::Response &res);
+    // if you use ros_bag, rosbag = 1 : using rosbag, rosbag = 2 : using in real world
+    int rosbag = 1;
+
 
     ORB_SLAM2::System* mpSLAM;
 };
@@ -157,15 +163,18 @@ int main(int argc, char **argv)
     // original code (in 2021 project)
     // message_filters::Subscriber<sensor_msgs::Image> rgb_sub(nh, "/cam_AGV/color/image_raw", 1);
     // message_filters::Subscriber<sensor_msgs::Image> depth_sub(nh, "cam_AGV/aligned_depth_to_color/image_raw", 1);
-    // message_filters::Subscriber<sensor_msgs::Image> rgb_sub(nh, "/camera/rgb/image_raw", 1);
     // message_filters::Subscriber<sensor_msgs::Image> depth_sub(nh, "camera/depth_registered/image_raw", 1);
+
+    // use orbslam without publish scan topic
+    // message_filters::Subscriber<sensor_msgs::Image> rgb_sub(nh, "/camera/rgb/image_raw", 1);
+    // message_filters::Subscriber<sensor_msgs::Image> depth_sub(nh, "camera/depth/image_raw", 1);
+
     // typedef message_filters::sync_policies::ApproximateTime<sensor_msgs::Image, sensor_msgs::Image> sync_pol;
     // message_filters::Synchronizer<sync_pol> sync(sync_pol(10), rgb_sub, depth_sub);
     // sync.registerCallback(boost::bind(&ImageGrabber::GrabRGBD, &igb, _1, _2));
 
     message_filters::Subscriber<sensor_msgs::Image> rgb_sub(nh, "/camera/rgb/image_raw", 5);
     message_filters::Subscriber<sensor_msgs::Image> depth_sub(nh, "/camera/depth/image_raw", 5);
-    // message_filters::Subscriber<sensor_msgs::Image> depth_sub(nh, "/camera/depth_registered/image_raw", 5);
     message_filters::Subscriber<sensor_msgs::LaserScan> scan_sub(nh, "/scan", 5);
 
     typedef message_filters::sync_policies::ApproximateTime<sensor_msgs::Image, sensor_msgs::Image, sensor_msgs::LaserScan> sync_pol;
@@ -197,6 +206,8 @@ void ImageGrabber::callback()
     // CurrentFrame = mpSLAM->GetmpTracker();
     CurrentDepth = mpSLAM->GetmvDepth();
     CurrentPose = mpSLAM->Getpose();
+    CurrentLocate = mpSLAM->GetPoseInverse();
+    
     // CurrentPose = mpSLAM->TrackRGBD();
 }
 
@@ -276,31 +287,48 @@ void ImageGrabber::PublishCamPose()
     else if ( CurrentPose.at<float>(0, 2) < 0 &&  CurrentPose.at<float>(2, 2) > 0 )
         angularZ = angularZ ;
 
-    if ( angularZ > 180 )
-        angularZ -= 360;
-    else if ( angularZ < -180 )
-        angularZ += 360;
+    // if ( angularZ > 180 )
+    //     angularZ -= 360;
+    // else if ( angularZ < -180 )
+    //     angularZ += 360;
 
-
-    TransP = TransCtoL*CurrentPose;
-
-    // geometry_msgs::Twist msg;
-    // msg.linear.x = TransP.at<float>(0, 3)*100;
-    // msg.linear.y = TransP.at<float>(0, 7)*100;
-    // msg.angular.z = angularZ;
-
-    // std::cerr << "zzzzzzzzzzzzzzzzzzzzzzz" << std::endl;
-    // std::cerr << TransP.at<float>(0, 3)*100 << std::endl;
-    // std::cerr << TransP.at<float>(1, 3)*100 << std::endl;
-    // std::cerr << angularZ << std::endl;
-    
 
     geometry_msgs::PointStamped msg;
-    // msg.header.stamp = ros::Time::now();
-    msg.header.stamp = current_lidar_time_;
-    msg.point.x = TransP.at<float>(0, 3)*100;
-    msg.point.y = TransP.at<float>(1, 3)*100;
-    msg.point.z = angularZ;
+
+    // real world
+    if (rosbag == 2)
+    {
+        TransP = TransCtoL*CurrentPose;
+        // geometry_msgs::Twist msg;
+        // msg.linear.x = TransP.at<float>(0, 3)*100;
+        // msg.linear.y = TransP.at<float>(0, 7)*100;
+        // msg.angular.z = angularZ;
+
+        // std::cerr << "zzzzzzzzzzzzzzzzzzzzzzz" << std::endl;
+        // std::cerr << TransP.at<float>(0, 3)*100 << std::endl;
+        // std::cerr << TransP.at<float>(1, 3)*100 << std::endl;
+        // std::cerr << angularZ << std::endl;
+
+        // msg.header.stamp = ros::Time::now();
+        msg.header.stamp = current_lidar_time_;
+        // msg.point.x = TransP.at<float>(0, 3)*100;
+        // msg.point.y = TransP.at<float>(1, 3)*100;
+        msg.point.x = TransP.at<float>(0, 3);
+        msg.point.y = TransP.at<float>(1, 3);
+        msg.point.z = angularZ;
+    }
+
+    // use in sim (rosbag), don't need to change camera and lidar frame
+    else if (rosbag == 1)
+    {
+
+        // msg.header.stamp = ros::Time::now();
+        msg.header.stamp = current_lidar_time_;
+
+        msg.point.x = CurrentLocate.at<float>(2, 3) - 3;
+        msg.point.y = -1*CurrentLocate.at<float>(0, 3) + 5;
+        msg.point.z = angularZ / 180.0 * PI;
+    }
 
     // save every previous poase untill client send the request
     PreviousPose.push_back(msg);

@@ -1,0 +1,54 @@
+dataset_creation_robot:
+    img_topics:
+        - '/camera/rgb/image_raw'
+        - '/camera/depth/image_raw'
+        # - '/flir_boson/image_raw'
+    pcl_topics:
+        - '/scan'
+        # - '/mmWaveDataHdl/RScan_middle'
+        # - '/mmWaveDataHdl/RScan_left'
+        # - '/mmWaveDataHdl/RScan_right'
+    csv_topics:
+        - '/odom'
+        # - '/imu/data'
+    thermal_16bit: True
+    pcl2depth:
+        mmwave_dist_min: 0.3
+        mmwave_dist_max: 5
+        h_fov: (-63, 63)
+        h_multi_fov: (-126, 126)
+        h_res: 2
+        v_fov: (-30, 30)
+        v_res: 2
+        max_v: 6
+        nb_overlay_frames: 3
+    translation_matrix:
+        middle: [0.16, 0, 0.0, 0, 0, 0]
+        left: [0, 0.16, 0.0, 0, 0, 0.7071, 0.7071]
+        right: [0, -0.16, 0.0, 0, 0, -0.7071, 0.7071]
+    dataroot: '/home/ron/work/src/savebag/bag'
+    # dataroot: '/media/lipeize/LaCie/Dataset/Oxford-rosbag/robot'
+    milliego:
+        saved_dir_h5: '/home/ron/work/src/savebag/bag'
+        master: 'mmwave_all'
+        slaves: # General rule: set the IMU as the last slave
+             - 'imu'
+        master_gap: 5 # for the master
+    deeptio:
+        saved_dir_h5: '/home/ron/work/src/savebag/bag'
+        master: 'thermal'
+        slaves: # General rule: set the IMU as the last slave
+             - 'imu'
+        master_gap: 5 # for the master
+    all_exp_files:
+          - sim_bag_
+        #   - sim_bag
+        #   - short_test
+        
+
+
+
+publish_dataset:
+    # dataroot: '/home/ron/work/src/savebag/bag/sim_bag'
+    # dataroot: '/home/ron/work/src/savebag/bag/short_test'
+    dataroot: '/home/ron/work/src/savebag/bag/sim_bag_'

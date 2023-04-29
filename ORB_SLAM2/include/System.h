@@ -137,6 +137,7 @@ public:
     vector<cv::KeyPoint> GetmpTracker();
     vector<float> GetmvDepth();
     cv::Mat Getpose();
+    cv::Mat GetPoseInverse();
 
 private:
 

@@ -59,6 +59,10 @@
 #include "ukf.h"
 #include "tools.h"
 
+#include <message_filters/time_synchronizer.h>
+#include <message_filters/sync_policies/approximate_time.h>
+#include <nav_msgs/Odometry.h>
+
 
 class SlamGMapping
 {
@@ -73,7 +77,9 @@ class SlamGMapping
     void startReplay(const std::string & bag_fname, std::string scan_topic);
     void publishTransform();
   
-    void laserCallback(const sensor_msgs::LaserScan::ConstPtr& scan);
+    // void laserCallback(const sensor_msgs::LaserScan::ConstPtr& scan);
+    void laserCallback(const sensor_msgs::LaserScan::ConstPtr& scan, const nav_msgs::Odometry::ConstPtr& odom);
+
     bool mapCallback(nav_msgs::GetMap::Request  &req,
                      nav_msgs::GetMap::Response &res);
     void publishLoop(double transform_publish_period);
@@ -90,7 +96,7 @@ class SlamGMapping
     LDP prev_ldp_scan_;
 
     // change method : 0 = gmapping, 1 = PLICP, 2 = PLICP+ORB
-    int mymethod = 2;
+    int mymethod = 1;
 
     // initialize PLICP parameters
     void InitICPParams();
@@ -139,8 +145,12 @@ class SlamGMapping
     // according to residual to adjust weight
     void AdjustWeight(VectorXd &a, VectorXd &b, int x);
 
-
-
+    std::vector<double> AE_PLICP;             // for saving PLICP average error 
+    std::vector<double> AE_ORBSLAM;           // for saving ORBSLAM2 average error
+    // compute precision of PLICP
+    void Precision_PLICP(const nav_msgs::Odometry::ConstPtr& odom, double x, double y);
+    // compute precision of ORB
+    void Precision_ORB(const nav_msgs::Odometry::ConstPtr& odom, double x, double y);
 
     bool first_time = true;
   private:
@@ -153,6 +163,10 @@ class SlamGMapping
     message_filters::Subscriber<sensor_msgs::LaserScan>* scan_filter_sub_;
     tf::MessageFilter<sensor_msgs::LaserScan>* scan_filter_;
     tf::TransformBroadcaster* tfB_;
+
+    // add Odometry subscriber
+    message_filters::Subscriber<nav_msgs::Odometry>* odom_filter_sub_;
+
 
     // PLICP function
     ros::Time last_icp_time_;               // last stamp 

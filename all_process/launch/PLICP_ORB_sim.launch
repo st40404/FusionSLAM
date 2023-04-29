@@ -23,4 +23,5 @@
         type="RGBD"
         args= "$(arg path_to_vocabulary) $(arg path_to_settings)" />
 
+
 </launch>

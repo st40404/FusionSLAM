@@ -122,9 +122,10 @@ System::System(const string &strVocFile, const string &strSettingsFile, const eS
     if(bUseViewer)
     {
         char SaveImg;
-        cerr << "Do you want to save images from the viewer?(y/n)" << endl;
-        cin >> SaveImg;
-        
+        // cerr << "Do you want to save images from the viewer?(y/n)" << endl;
+        // cin >> SaveImg;
+        SaveImg = 'Y';
+
         mpViewer = new Viewer(this, mpFrameDrawer,mpMapDrawer,mpTracker,strSettingsFile);
         mptViewer = new thread(&Viewer::Run, mpViewer);
         mpTracker->SetViewer(mpViewer);
@@ -137,8 +138,9 @@ System::System(const string &strVocFile, const string &strSettingsFile, const eS
 
     // Choose to use pure localization mode
     char IsPureLocalization;
-    cerr << "Do you want to run pure localization?(y/n)" << endl;
-    cin >> IsPureLocalization;
+    // cerr << "Do you want to run pure localization?(y/n)" << endl;
+    // cin >> IsPureLocalization;
+    IsPureLocalization = 'n';
     if(IsPureLocalization == 'Y' || IsPureLocalization == 'y'){  
         ActivateLocalizationMode();
     }
@@ -157,8 +159,9 @@ System::System(const string &strVocFile, const string &strSettingsFile, const eS
     string strPathMap = cwd + "/MapPointandKeyFrame.bin";
     cerr << "Your map file path would be : " << strPathMap << endl; 
 
-    cerr << "Do you want to load the map?(y/n)" << endl;  
-    cin >> IsLoadMap;
+    // cerr << "Do you want to load the map?(y/n)" << endl;  
+    // cin >> IsLoadMap;
+    IsLoadMap = 'n';
     SystemSetting *mySystemSetting = new SystemSetting(mpVocabulary);  
     mySystemSetting->LoadSystemSetting(strPathSystemSetting);
     // mySystemSetting->LoadSystemSetting("/home/boom/MY_ORB_SLAM2/ORB_SLAM2/Examples/Stereo/KITTI04-12.yaml");
@@ -675,6 +678,11 @@ cv::Mat System::Getpose()
     return mpTracker->mCurrentFrame.mpReferenceKF->GetPose();
 }
 
+cv::Mat System::GetPoseInverse()
+{
+    unique_lock<mutex> lock(mMutexState);
+    return mpTracker->mCurrentFrame.mpReferenceKF->GetPoseInverse();
+}
 
 
 } //namespace ORB_SLAM

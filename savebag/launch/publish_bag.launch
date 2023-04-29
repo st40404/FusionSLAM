@@ -1,0 +1,10 @@
+<launch>
+
+
+    <!-- publish: rgb -->
+    <node pkg="savebag" name="camera" type="publish_camera.py"/>
+
+
+    <!-- publish: rgb -->
+    <node pkg="savebag" name="lidar" type="publish_laser.py"/>
+</launch>
