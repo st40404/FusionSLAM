@@ -293,6 +293,8 @@ void SlamGMapping::startLiveSlam()
   sync->registerCallback(boost::bind(&SlamGMapping::laserCallback, this, _1, _2));
 
 
+  // define /trigger service master
+  Trigger_serv = node_.advertiseService("/trigger", &SlamGMapping::KillTrigger, this);
 
   transform_thread_ = new boost::thread(boost::bind(&SlamGMapping::publishLoop, this, transform_publish_period_));
 
@@ -599,6 +601,12 @@ SlamGMapping::initMapper(const sensor_msgs::LaserScan& scan)
   // Call the sampling function once to set the seed.
   GMapping::sampleGaussian(1,seed_);
 
+  // save path of log, PLICP config and ORB config
+  YAML::Node config = YAML::LoadFile(config_path);
+  log_path   = config["log_path"].as<std::string>();
+  plicp_path = config["plicp_config"].as<std::string>();
+  orb_path   = config["orb_config"].as<std::string>();
+
   ROS_INFO("Initialization complete");
   return true;
 }
@@ -903,7 +911,7 @@ void SlamGMapping::laserCallback(const sensor_msgs::LaserScan::ConstPtr& scan, c
       // map update will follow map_update_interval_ this parameter
       if(!got_map_ || (scan->header.stamp - last_map_update) > map_update_interval_)
       {
-        std::cerr << "zzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzz" << std::endl;
+        // std::cerr << "zzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzz" << std::endl;
         publishMap(*scan);
         last_map_update = scan->header.stamp;
         ROS_DEBUG("Updated the map");
@@ -1011,11 +1019,7 @@ void SlamGMapping::laserCallback(const sensor_msgs::LaserScan::ConstPtr& scan, c
         last_ORB_pose.theta = srv.response.z;
 
         Precision_ORB(odom, srv.response.x, srv.response.y);
-        // Precision_PLICP(odom, lcp_current_pose.x,  lcp_current_pose.y);
-
-
-
-
+        Precision_PLICP(odom, lcp_current_pose.x,  lcp_current_pose.y);
 
         // put ORB pose variety and PLICP pose variety into Unscented Kalman Filter
         // ORB pose part
@@ -1103,7 +1107,7 @@ void SlamGMapping::laserCallback(const sensor_msgs::LaserScan::ConstPtr& scan, c
         // map update will follow map_update_interval_ this parameter
         if(!got_map_ || (scan->header.stamp - last_map_update) > map_update_interval_)
         {
-          std::cerr << "zzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzz" << std::endl;
+          // std::cerr << "zzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzz" << std::endl;
           publishMap(*scan);
           last_map_update = scan->header.stamp;
           ROS_DEBUG("Updated the map");
@@ -1491,6 +1495,17 @@ void SlamGMapping::InitICPParams()
     //     resolution_ = 0.05;
     // if (!private_node_.getParam("occ_thresh", occ_thresh_))
     //     occ_thresh_ = 0.25;
+
+    YAML::Node plicp_config = YAML::LoadFile(plicp_path);
+
+    input_.max_angular_correction_deg = plicp_config["max_angular_correction_deg"].as<float>();
+    input_.max_linear_correction      = plicp_config["max_linear_correction"].as<float>();
+    input_.max_iterations             = plicp_config["max_iterations"].as<int>();
+    input_.epsilon_xy                 = plicp_config["epsilon_xy"].as<float>();
+    input_.epsilon_theta              = plicp_config["epsilon_theta"].as<float>();
+    input_.max_correspondence_dist    = plicp_config["max_correspondence_dist"].as<float>();
+    input_.outliers_maxPerc           = plicp_config["outliers_maxPerc"].as<float>();
+
     ORB_weight = VectorXd(3);
     PLICP_weight = VectorXd(3);
     
@@ -1667,19 +1682,11 @@ void SlamGMapping::Precision_PLICP(const nav_msgs::Odometry::ConstPtr& odom, dou
   AE_PLICP.push_back( abs(odom->pose.pose.position.x - x));
   AE_PLICP.push_back( abs(odom->pose.pose.position.y - y));
 
-  double precision = 0.0;
-
-  for (int i=0; i<=AE_PLICP.size(); i++)
-  {
-    precision += AE_PLICP[i];
-  }
-
-
-  // std::cerr << odom->pose.pose.position.x << " " << odom->pose.pose.position.y << " " << -2 * acos(odom->pose.pose.orientation.w) / 3.14159 * 180.0 << std::endl;
-
-  // std::cerr << "PLICP =========================" << std::endl;
-  // std::cerr << precision/AE_PLICP.size() << std::endl;
-
+  double flag_x = pow(odom->pose.pose.position.x - x, 2);
+  double flag_y = pow(odom->pose.pose.position.y - y, 2);
+  MSE_PLICP_x   += flag_x; 
+  MSE_PLICP_y   += flag_y; 
+  MSE_PLICP_sum += flag_x + flag_y;
 }
 // compute precision of ORB
 void SlamGMapping::Precision_ORB(const nav_msgs::Odometry::ConstPtr& odom, double x, double y)
@@ -1687,19 +1694,279 @@ void SlamGMapping::Precision_ORB(const nav_msgs::Odometry::ConstPtr& odom, doubl
   AE_ORBSLAM.push_back( abs(odom->pose.pose.position.x - x ));
   AE_ORBSLAM.push_back( abs(odom->pose.pose.position.y - y ));
 
-  // double precision = 0.0;
-
-  // for (int i=0; i<=AE_ORBSLAM.size(); i++)
-  // {
-  //   precision += AE_ORBSLAM[i];
-  // }
-  
-  std::cerr << "ORB =========================" << std::endl;
-  // std::cerr << precision/AE_ORBSLAM.size() << std::endl;
-  std::cerr << AE_ORBSLAM.size() << std::endl;
+  double flag_x = pow(odom->pose.pose.position.x - x, 2);
+  double flag_y = pow(odom->pose.pose.position.y - y, 2);
+  MSE_ORBSLAM_x   += flag_x; 
+  MSE_ORBSLAM_y   += flag_y; 
+  MSE_ORBSLAM_sum += flag_x + flag_y;
 }
 
 
+bool SlamGMapping::KillTrigger(  all_process::Trigger::Request  &req,
+                                 all_process::Trigger::Response &res)
+{
+  bool flag_orb;
+  bool flag_plicp;
+
+  flag_orb = SetORBparam();
+  flag_plicp = SetPLICPparam();
+
+  if (flag_orb == true && flag_plicp == true)
+    return true;
+  if (flag_orb == false || flag_plicp == false)
+    return false;
+}
+
+bool SlamGMapping::SetORBparam()
+{
+  if (finish_orb == true)
+  {
+    std::cerr << "fuxkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkk" << std::endl;
+    std::cerr << "ORB finish" << std::endl;
+    return true;
+  }
+
+  YAML::Node orb_config = YAML::LoadFile(orb_path);
+
+  int nFeatures     = orb_config["ORBextractor.nFeatures"].as<int>();
+  float scaleFactor = orb_config["ORBextractor.scaleFactor"].as<float>();
+  int nLevels       = orb_config["ORBextractor.nLevels"].as<int>();
+  int iniThFAST     = orb_config["ORBextractor.iniThFAST"].as<int>();
+  int minThFAST     = orb_config["ORBextractor.minThFAST"].as<int>();
+  
+  //compute average error
+  float sum = 0;
+  for (int i=0; i<AE_ORBSLAM.size(); i++)
+    sum += AE_ORBSLAM[i];
+  sum = sum/AE_ORBSLAM.size();
+
+  MSE_ORBSLAM_x = MSE_ORBSLAM_x/AE_ORBSLAM.size()*2;
+  MSE_ORBSLAM_y = MSE_ORBSLAM_y/AE_ORBSLAM.size()*2;
+  MSE_ORBSLAM_sum = MSE_ORBSLAM_sum/AE_ORBSLAM.size();
+
+  std::fstream logFile_ORB;
+  // Open File
+  std::string path = log_path + "/data/ORB/log_" + std::to_string(iniThFAST) + '_' + std::to_string(minThFAST) + ".txt";
+  logFile_ORB.open( path, std::ios::app);
+
+  //Write data into log file
+  logFile_ORB << "Features:" + std::to_string(nFeatures);
+  logFile_ORB << " scale:"   + std::to_string(scaleFactor);
+  logFile_ORB << " Levels:"  + std::to_string(nLevels);
+  logFile_ORB << " iniFAST:" + std::to_string(iniThFAST);
+  logFile_ORB << " minFAST:" + std::to_string(minThFAST);
+  logFile_ORB << "---avg:"   + std::to_string(sum);
+  logFile_ORB << " mseX:"    + std::to_string(MSE_ORBSLAM_x);
+  logFile_ORB << " mseY:"    + std::to_string(MSE_ORBSLAM_y);
+  logFile_ORB << " mseS:"    + std::to_string(MSE_ORBSLAM_sum);
+  logFile_ORB << "\n";
+  // close file stream
+  logFile_ORB.close();
+
+  // adjust the param setting
+  int nFeatures_max = 6500;
+  int nFeatures_min = 500;
+  int nFeatures_add = 1000;
+
+  float scaleFactor_max = 1.5;
+  float scaleFactor_min = 1.1;
+  float scaleFactor_add = 0.1;
+
+  int nLevels_max = 10;
+  int nLevels_min = 4;
+  int nLevels_add = 2;
+
+  int iniThFAST_max = 30;
+  int iniThFAST_min = 12;
+  int iniThFAST_add = 6;
+
+  int minThFAST_max = 12;
+  int minThFAST_min = 3;
+  int minThFAST_add = 3;
+
+
+  if (nFeatures >= nFeatures_min && nFeatures < nFeatures_max)
+    orb_config["ORBextractor.nFeatures"] = nFeatures + nFeatures_add;
+  else 
+  {
+    orb_config["ORBextractor.nFeatures"] = nFeatures_min;
+
+    if (scaleFactor >= scaleFactor_min && scaleFactor < scaleFactor_max)
+      orb_config["ORBextractor.scaleFactor"] = scaleFactor + scaleFactor_add;
+    else
+    {
+      orb_config["ORBextractor.scaleFactor"] = scaleFactor_min;
+
+      if (nLevels >= nLevels_min && nLevels < nLevels_max)
+        orb_config["ORBextractor.nLevels"] = nLevels + nLevels_add;
+      else
+      {
+        orb_config["ORBextractor.nLevels"] = nLevels_min;
+
+        if (minThFAST >= minThFAST_min && minThFAST < minThFAST_max)
+          orb_config["ORBextractor.minThFAST"] = minThFAST + minThFAST_add;
+        else
+        {
+          orb_config["ORBextractor.minThFAST"] = minThFAST_min;
+          if (iniThFAST >= iniThFAST_min && iniThFAST < iniThFAST_max)
+            orb_config["ORBextractor.iniThFAST"] = iniThFAST + iniThFAST_add;
+          else
+          {
+            finish_orb = true;
+            return true;
+          }
+        }
+      }
+    }
+  }
+
+  std::ofstream fout(orb_path);
+  YAML::Emitter orb_emitter;
+  orb_emitter << orb_config;
+  fout << orb_emitter.c_str();
+  fout.close();
+  return true;
+}
+
+
+bool SlamGMapping::SetPLICPparam()
+{
+  if (finish_plicp == true)
+  {
+    std::cerr << "fuxkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkk" << std::endl;
+    std::cerr << "PLICP finish" << std::endl;
+    return true;
+  }
+
+  YAML::Node plicp_config = YAML::LoadFile(plicp_path);
+
+  float max_angular_correction_deg = plicp_config["max_angular_correction_deg"].as<float>();
+  float max_linear_correction      = plicp_config["max_linear_correction"].as<float>();
+  int   max_iterations             = plicp_config["max_iterations"].as<int>();
+  float epsilon_xy                 = plicp_config["epsilon_xy"].as<float>();
+  float epsilon_theta              = plicp_config["epsilon_theta"].as<float>();
+  float max_correspondence_dist    = plicp_config["max_correspondence_dist"].as<float>();
+  float outliers_maxPerc           = plicp_config["outliers_maxPerc"].as<float>();
+
+  //compute average error
+  float sum = 0;
+  for (int i=0; i<AE_PLICP.size(); i++)
+    sum += AE_PLICP[i];
+  sum = sum/AE_PLICP.size();
+
+  MSE_PLICP_x = MSE_PLICP_x/AE_PLICP.size()*2;
+  MSE_PLICP_y = MSE_PLICP_y/AE_PLICP.size()*2;
+  MSE_PLICP_sum = MSE_PLICP_sum/AE_PLICP.size();
+
+  std::fstream logFile_PLICP;
+  // Open File
+  std::string path = log_path + "/data/PLICP/log_" + std::to_string(epsilon_theta) + '_' + std::to_string(max_correspondence_dist) + '_' + std::to_string(outliers_maxPerc) + ".txt";
+  logFile_PLICP.open( path, std::ios::app);
+
+  //Write data into log file
+  logFile_PLICP << "deg:"      + std::to_string(max_angular_correction_deg);
+  logFile_PLICP << " cor:"      + std::to_string(max_linear_correction);
+  logFile_PLICP << " itera:"    + std::to_string(max_iterations);
+  logFile_PLICP << " ep_xy:"    + std::to_string(epsilon_xy);
+  logFile_PLICP << " ep_theta:" + std::to_string(epsilon_theta);
+  logFile_PLICP << " dist:"     + std::to_string(max_correspondence_dist);
+  logFile_PLICP << " Perc:"     + std::to_string(outliers_maxPerc);
+
+  logFile_PLICP << "---avg:"   + std::to_string(sum);
+  logFile_PLICP << " mseX:"    + std::to_string(MSE_PLICP_x);
+  logFile_PLICP << " mseY:"    + std::to_string(MSE_PLICP_y);
+  logFile_PLICP << " mseS:"    + std::to_string(MSE_PLICP_sum);
+  logFile_PLICP << "\n";
+  // close file stream
+  logFile_PLICP.close();
+
+  // adjust the param setting
+  float deg_max = 180.0;
+  float deg_min = 45.0;
+  float deg_add = 45.0;
+
+  float cor_max = 0.9;
+  float cor_min = 0.5;
+  float cor_add = 0.2;
+
+  int itera_max = 15;
+  int itera_min = 5;
+  int itera_add = 5;
+
+  float ep_xy_max = 0.001;
+  float ep_xy_min = 0.0000001;
+  float ep_xy_add = 10;
+
+  float ep_theta_max = 0.001;
+  float ep_theta_min = 0.0000001;
+  float ep_theta_add = 10;
+
+  float dist_max = 1.0;
+  float dist_min = 0.5;
+  float dist_add = 2.5;
+
+  float Perc_max = 0.9;
+  float Perc_min = 0.5;
+  float Perc_add = 0.1;
+
+  if (max_angular_correction_deg >= deg_min && max_angular_correction_deg < deg_max)
+    plicp_config["max_angular_correction_deg"] = max_angular_correction_deg + deg_add;
+  else 
+  {
+    plicp_config["max_angular_correction_deg"] = deg_min;
+
+    if (max_linear_correction >= cor_min && max_linear_correction < cor_max)
+      plicp_config["max_linear_correction"] = max_linear_correction + cor_add;
+    else
+    {
+      plicp_config["max_linear_correction"] = cor_min;
+
+      if (max_iterations >= itera_min && max_iterations < itera_max)
+        plicp_config["max_iterations"] = max_iterations + itera_add;
+      else
+      {
+        plicp_config["max_iterations"] = itera_min;
+
+        if (epsilon_xy >= ep_xy_min && epsilon_xy < ep_xy_max)
+          plicp_config["epsilon_xy"] = epsilon_xy * ep_xy_add;
+        else
+        {
+          plicp_config["epsilon_xy"] = ep_xy_min;
+
+          if (epsilon_theta >= ep_theta_min && epsilon_theta < ep_theta_max)
+            plicp_config["epsilon_theta"] = epsilon_theta * ep_theta_add;
+          else
+          {
+            plicp_config["epsilon_theta"] = ep_theta_min;
+
+            if (max_correspondence_dist >= dist_min && max_correspondence_dist < dist_max)
+              plicp_config["max_correspondence_dist"] = max_correspondence_dist + dist_add;
+            else
+            {
+              plicp_config["max_correspondence_dist"] = dist_min;
+
+              if (outliers_maxPerc >= Perc_min && outliers_maxPerc < Perc_max)
+                plicp_config["outliers_maxPerc"] = outliers_maxPerc + Perc_add;
+              else
+              {
+                finish_plicp = true;
+                return false;
+                // plicp_config["outliers_maxPerc"] = Perc_min;
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+
+  std::ofstream fout(plicp_path);
+  YAML::Emitter plicp_emitter;
+  plicp_emitter << plicp_config;
+  fout << plicp_emitter.c_str();
+  fout.close();
+  return true;
+}
 
 void SlamGMapping::SaveResidual()
 {

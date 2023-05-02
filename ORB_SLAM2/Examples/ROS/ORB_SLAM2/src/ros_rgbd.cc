@@ -113,6 +113,7 @@ public:
     // add SurvicePose function of master service for camera pose
     bool SurvicePose(   all_process::CameraPose::Request  &req,
                         all_process::CameraPose::Response &res);
+
     // if you use ros_bag, rosbag = 1 : using rosbag, rosbag = 2 : using in real world
     int rosbag = 1;
 
@@ -357,6 +358,7 @@ bool ImageGrabber::SurvicePose(  all_process::CameraPose::Request  &req,
 
     return false;   
 }
+
 
 // set publish message of member pose
 void ImageGrabber::SetPose()

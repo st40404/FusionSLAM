@@ -1,0 +1,5 @@
+%YAML:1.0
+
+log_path: "/home/ron/work/src/all_process"
+plicp_config: "/home/ron/work/src/all_process/PLICP_config.yaml"
+orb_config: "/home/ron/work/src/ORB_SLAM2/Examples/ROS/ORB_SLAM2/data/sim_tune.yaml"

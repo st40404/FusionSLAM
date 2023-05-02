@@ -61,6 +61,7 @@ add_service_files(
 #   CameraPose.srv
 #   Service2.srv
    CameraPose.srv
+   Trigger.srv
 )
 
 ## Generate actions in the 'action' folder

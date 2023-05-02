@@ -51,6 +51,18 @@
 #include <geometry_msgs/PointStamped.h>
 // add Camera service
 #include "all_process/CameraPose.h"
+// add Kill node Trigger service
+#include "all_process/Trigger.h"
+// use log
+#include <fstream>
+
+// use to read yaml
+#include "yaml-cpp/yaml.h"
+
+// use for MSE
+#include <cmath>
+#include <vector>
+
 // add UKF library
 // #include "Eigen/Dense"
 // #include "ukf.h"
@@ -96,7 +108,7 @@ class SlamGMapping
     LDP prev_ldp_scan_;
 
     // change method : 0 = gmapping, 1 = PLICP, 2 = PLICP+ORB
-    int mymethod = 1;
+    int mymethod = 2;
 
     // initialize PLICP parameters
     void InitICPParams();
@@ -114,6 +126,10 @@ class SlamGMapping
     void SubsPose(const geometry_msgs::PointStamped::ConstPtr &pose);
     ros::ServiceClient CamPose_client;
     all_process::CameraPose srv;
+
+    // define kill node trigger  service
+    ros::ServiceServer Trigger_serv;
+
 
     // save last period pose by odom and ORB
     GMapping::OrientedPoint last_odom_pose;
@@ -145,13 +161,43 @@ class SlamGMapping
     // according to residual to adjust weight
     void AdjustWeight(VectorXd &a, VectorXd &b, int x);
 
+    
     std::vector<double> AE_PLICP;             // for saving PLICP average error 
     std::vector<double> AE_ORBSLAM;           // for saving ORBSLAM2 average error
+
+    // for saving PLICP MSE (without divide size)
+    double MSE_PLICP_x = 0.0;
+    double MSE_PLICP_y = 0.0;
+    double MSE_PLICP_sum = 0.0;
+
+    // for saving ORBSLAM2 MSE (without divide size)
+    double MSE_ORBSLAM_x = 0.0;
+    double MSE_ORBSLAM_y = 0.0;
+    double MSE_ORBSLAM_sum = 0.0;
+
     // compute precision of PLICP
     void Precision_PLICP(const nav_msgs::Odometry::ConstPtr& odom, double x, double y);
     // compute precision of ORB
     void Precision_ORB(const nav_msgs::Odometry::ConstPtr& odom, double x, double y);
 
+    // add KillTrigger function of master service for kill node trigger
+    bool KillTrigger(   all_process::Trigger::Request  &req,
+                        all_process::Trigger::Response &res);
+
+    bool SetORBparam();
+    bool SetPLICPparam();
+
+    //define config path
+    std::string  config_path = "/home/ron/work/src/all_process/config.yaml";
+
+    // save the path of log , orb config and plicp config 
+    std::string  log_path;
+    std::string  plicp_path;
+    std::string  orb_path;
+    bool finish_orb = false;
+    bool finish_plicp = false;
+
+    
     bool first_time = true;
   private:
     ros::NodeHandle node_;
