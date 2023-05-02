@@ -1903,7 +1903,7 @@ bool SlamGMapping::SetPLICPparam()
 
   float dist_max = 1.0;
   float dist_min = 0.5;
-  float dist_add = 2.5;
+  float dist_add = 0.25;
 
   float Perc_max = 0.9;
   float Perc_min = 0.5;

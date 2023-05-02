@@ -1,9 +1,7 @@
-%YAML:1.0
-
-max_angular_correction_deg: 45.0
-max_linear_correction: 0.5
-max_iterations: 5
-epsilon_xy: 0.000001
-epsilon_theta: 0.000001
-max_correspondence_dist: 0.5
+max_linear_correction: 0.9
 outliers_maxPerc: 0.5
+epsilon_xy: 0.0001
+max_iterations: 10
+epsilon_theta: 0.0001
+max_correspondence_dist: 0.5
+max_angular_correction_deg: 180
