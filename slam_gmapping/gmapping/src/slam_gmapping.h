@@ -194,9 +194,6 @@ class SlamGMapping
     std::string  log_path;
     std::string  plicp_path;
     std::string  orb_path;
-    bool finish_orb = false;
-    bool finish_plicp = false;
-
     
     bool first_time = true;
   private:

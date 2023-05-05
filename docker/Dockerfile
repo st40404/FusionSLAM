@@ -67,6 +67,8 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     # install cuda for ORBSLAM
     nvidia-cuda-toolkit \
     libopencv-dev \
+    # install matplot
+    python-tk \
     # add rule file for lidar permission
     && mkdir -p /etc/udev/rules.d \
     apt-get clean \

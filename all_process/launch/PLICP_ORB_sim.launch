@@ -28,7 +28,7 @@
           output="screen" 
           args="--clock -r 1 -d 10 $(find savebag)/bag/short_test.bag" 
           respawn="true"
-          respawn_delay="10"
+          respawn_delay="3"
           />
 
 

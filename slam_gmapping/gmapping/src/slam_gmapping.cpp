@@ -1719,13 +1719,6 @@ bool SlamGMapping::KillTrigger(  all_process::Trigger::Request  &req,
 
 bool SlamGMapping::SetORBparam()
 {
-  if (finish_orb == true)
-  {
-    std::cerr << "fuxkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkk" << std::endl;
-    std::cerr << "ORB finish" << std::endl;
-    return true;
-  }
-
   YAML::Node orb_config = YAML::LoadFile(orb_path);
 
   int nFeatures     = orb_config["ORBextractor.nFeatures"].as<int>();
@@ -1734,6 +1727,60 @@ bool SlamGMapping::SetORBparam()
   int iniThFAST     = orb_config["ORBextractor.iniThFAST"].as<int>();
   int minThFAST     = orb_config["ORBextractor.minThFAST"].as<int>();
   
+  // adjust the param setting (first tune)
+  // int nFeatures_max = 6500;
+  // int nFeatures_min = 500;
+  // int nFeatures_add = 1000;
+
+  // float scaleFactor_max = 1.5;
+  // float scaleFactor_min = 1.1;
+  // float scaleFactor_add = 0.1;
+
+  // int nLevels_max = 10;
+  // int nLevels_min = 4;
+  // int nLevels_add = 2;
+
+  // int iniThFAST_max = 30;
+  // int iniThFAST_min = 12;
+  // int iniThFAST_add = 6;
+
+  // int minThFAST_max = 12;
+  // int minThFAST_min = 3;
+  // int minThFAST_add = 3;
+
+  // adjust the param setting (second tune)
+  int nFeatures_max = 2000;
+  int nFeatures_min = 1000;
+  int nFeatures_add = 250;
+
+  float scaleFactor_max = 1.25;
+  float scaleFactor_min = 1.15;
+  float scaleFactor_add = 0.05;
+
+  int nLevels_max = 5;
+  int nLevels_min = 3;
+  int nLevels_add = 1;
+
+  int minThFAST_max = 13;
+  int minThFAST_min = 7;
+  int minThFAST_add = 2;
+
+  int iniThFAST_max = 36;
+  int iniThFAST_min = 21;
+  int iniThFAST_add = 3;
+
+  // set flag to avoid program
+  if ( nFeatures >= nFeatures_max )
+    if ( scaleFactor >= scaleFactor_max )
+      if ( nLevels >= nLevels_max )
+        if ( minThFAST >= minThFAST_max )
+          if ( iniThFAST >= iniThFAST_max )
+          {
+            std::cerr << "fuckkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkk" << std::endl;
+            std::cerr << "ORB finish" << std::endl;
+            return true;
+          }
+
   //compute average error
   float sum = 0;
   for (int i=0; i<AE_ORBSLAM.size(); i++)
@@ -1746,7 +1793,8 @@ bool SlamGMapping::SetORBparam()
 
   std::fstream logFile_ORB;
   // Open File
-  std::string path = log_path + "/data/ORB/log_" + std::to_string(iniThFAST) + '_' + std::to_string(minThFAST) + ".txt";
+  // std::string path = log_path + "/data/ORB/log_" + std::to_string(iniThFAST) + '_' + std::to_string(minThFAST) + ".txt";
+  std::string path = log_path + "/data/ORB/log_" + std::to_string(minThFAST) + '_' + std::to_string(iniThFAST) + ".txt";
   logFile_ORB.open( path, std::ios::app);
 
   //Write data into log file
@@ -1762,27 +1810,6 @@ bool SlamGMapping::SetORBparam()
   logFile_ORB << "\n";
   // close file stream
   logFile_ORB.close();
-
-  // adjust the param setting
-  int nFeatures_max = 6500;
-  int nFeatures_min = 500;
-  int nFeatures_add = 1000;
-
-  float scaleFactor_max = 1.5;
-  float scaleFactor_min = 1.1;
-  float scaleFactor_add = 0.1;
-
-  int nLevels_max = 10;
-  int nLevels_min = 4;
-  int nLevels_add = 2;
-
-  int iniThFAST_max = 30;
-  int iniThFAST_min = 12;
-  int iniThFAST_add = 6;
-
-  int minThFAST_max = 12;
-  int minThFAST_min = 3;
-  int minThFAST_add = 3;
 
 
   if (nFeatures >= nFeatures_min && nFeatures < nFeatures_max)
@@ -1811,10 +1838,7 @@ bool SlamGMapping::SetORBparam()
           if (iniThFAST >= iniThFAST_min && iniThFAST < iniThFAST_max)
             orb_config["ORBextractor.iniThFAST"] = iniThFAST + iniThFAST_add;
           else
-          {
-            finish_orb = true;
             return true;
-          }
         }
       }
     }
@@ -1831,13 +1855,6 @@ bool SlamGMapping::SetORBparam()
 
 bool SlamGMapping::SetPLICPparam()
 {
-  if (finish_plicp == true)
-  {
-    std::cerr << "fuxkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkk" << std::endl;
-    std::cerr << "PLICP finish" << std::endl;
-    return true;
-  }
-
   YAML::Node plicp_config = YAML::LoadFile(plicp_path);
 
   float max_angular_correction_deg = plicp_config["max_angular_correction_deg"].as<float>();
@@ -1847,6 +1864,57 @@ bool SlamGMapping::SetPLICPparam()
   float epsilon_theta              = plicp_config["epsilon_theta"].as<float>();
   float max_correspondence_dist    = plicp_config["max_correspondence_dist"].as<float>();
   float outliers_maxPerc           = plicp_config["outliers_maxPerc"].as<float>();
+
+  // adjust the param setting (first tune)
+  // float deg_max = 180.0;
+  // float deg_min = 45.0;
+  // float deg_add = 45.0;
+
+  // float cor_max = 0.9;
+  // float cor_min = 0.5;
+  // float cor_add = 0.2;
+
+  // int itera_max = 15;
+  // int itera_min = 5;
+  // int itera_add = 5;
+
+  // float ep_xy_max = 0.001;
+  // float ep_xy_min = 0.0000001;
+  // float ep_xy_add = 10;
+
+  // float ep_theta_max = 0.001;
+  // float ep_theta_min = 0.0000001;
+  // float ep_theta_add = 10;
+
+  // float dist_max = 1.0;
+  // float dist_min = 0.5;
+  // float dist_add = 0.25;
+
+  // float Perc_max = 0.9;
+  // float Perc_min = 0.5;
+  // float Perc_add = 0.1;
+
+    // adjust the param setting (second tune)
+  float deg_max = 360.0;
+  float deg_min = 180.0;
+  float deg_add = 60.0;
+
+  float cor_max = 0.6;
+  float cor_min = 0.2;
+  float cor_add = 0.1;
+
+  int itera_max = 7;
+  int itera_min = 4;
+  int itera_add = 1;
+
+  float dist_max = 0.7;
+  float dist_min = 0.4;
+  float dist_add = 0.1;
+
+  float Perc_max = 0.7;
+  float Perc_min = 0.6;
+  float Perc_add = 0.1;
+
 
   //compute average error
   float sum = 0;
@@ -1860,7 +1928,8 @@ bool SlamGMapping::SetPLICPparam()
 
   std::fstream logFile_PLICP;
   // Open File
-  std::string path = log_path + "/data/PLICP/log_" + std::to_string(epsilon_theta) + '_' + std::to_string(max_correspondence_dist) + '_' + std::to_string(outliers_maxPerc) + ".txt";
+  // std::string path = log_path + "/data/PLICP/log_" + std::to_string(epsilon_theta) + '_' + std::to_string(max_correspondence_dist) + '_' + std::to_string(outliers_maxPerc) + ".txt";
+  std::string path = log_path + "/data/PLICP/log_" + std::to_string(max_correspondence_dist) + '_' + std::to_string(outliers_maxPerc) + ".txt";
   logFile_PLICP.open( path, std::ios::app);
 
   //Write data into log file
@@ -1880,35 +1949,6 @@ bool SlamGMapping::SetPLICPparam()
   // close file stream
   logFile_PLICP.close();
 
-  // adjust the param setting
-  float deg_max = 180.0;
-  float deg_min = 45.0;
-  float deg_add = 45.0;
-
-  float cor_max = 0.9;
-  float cor_min = 0.5;
-  float cor_add = 0.2;
-
-  int itera_max = 15;
-  int itera_min = 5;
-  int itera_add = 5;
-
-  float ep_xy_max = 0.001;
-  float ep_xy_min = 0.0000001;
-  float ep_xy_add = 10;
-
-  float ep_theta_max = 0.001;
-  float ep_theta_min = 0.0000001;
-  float ep_theta_add = 10;
-
-  float dist_max = 1.0;
-  float dist_min = 0.5;
-  float dist_add = 0.25;
-
-  float Perc_max = 0.9;
-  float Perc_min = 0.5;
-  float Perc_add = 0.1;
-
   if (max_angular_correction_deg >= deg_min && max_angular_correction_deg < deg_max)
     plicp_config["max_angular_correction_deg"] = max_angular_correction_deg + deg_add;
   else 
@@ -1927,17 +1967,17 @@ bool SlamGMapping::SetPLICPparam()
       {
         plicp_config["max_iterations"] = itera_min;
 
-        if (epsilon_xy >= ep_xy_min && epsilon_xy < ep_xy_max)
-          plicp_config["epsilon_xy"] = epsilon_xy * ep_xy_add;
-        else
-        {
-          plicp_config["epsilon_xy"] = ep_xy_min;
+        // if (epsilon_xy >= ep_xy_min && epsilon_xy < ep_xy_max)
+        //   plicp_config["epsilon_xy"] = epsilon_xy * ep_xy_add;
+        // else
+        // {
+        //   plicp_config["epsilon_xy"] = ep_xy_min;
 
-          if (epsilon_theta >= ep_theta_min && epsilon_theta < ep_theta_max)
-            plicp_config["epsilon_theta"] = epsilon_theta * ep_theta_add;
-          else
-          {
-            plicp_config["epsilon_theta"] = ep_theta_min;
+        //   if (epsilon_theta >= ep_theta_min && epsilon_theta < ep_theta_max)
+        //     plicp_config["epsilon_theta"] = epsilon_theta * ep_theta_add;
+        //   else
+        //   {
+        //     plicp_config["epsilon_theta"] = ep_theta_min;
 
             if (max_correspondence_dist >= dist_min && max_correspondence_dist < dist_max)
               plicp_config["max_correspondence_dist"] = max_correspondence_dist + dist_add;
@@ -1949,13 +1989,13 @@ bool SlamGMapping::SetPLICPparam()
                 plicp_config["outliers_maxPerc"] = outliers_maxPerc + Perc_add;
               else
               {
-                finish_plicp = true;
+                std::cerr << "fuxkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkk" << std::endl;
+                std::cerr << "PLICP finish" << std::endl;
                 return false;
-                // plicp_config["outliers_maxPerc"] = Perc_min;
               }
             }
-          }
-        }
+          // }
+        // }
       }
     }
   }
