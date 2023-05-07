@@ -11,8 +11,7 @@ pkg_check_modules(csm REQUIRED csm)
 
 # find yaml project
 find_package(yaml-cpp REQUIRED)
-# use opencv project read yaml
-find_package(OpenCV REQUIRED)
+
 
 # add csm pkg
 include_directories(${Boost_INCLUDE_DIRS} ${catkin_INCLUDE_DIRS} ${csm_INCLUDE_DIRS} )

@@ -22,13 +22,16 @@ UKF::UKF() {
   // if this is false, radar measurements will be ignored (except during init)
   use_radar_ = true;
 
+  int input = 2;
   // initial state vector
   // x_ = VectorXd(5);
-  x_ = VectorXd(2);
+  // x_ = VectorXd(2);
+  x_ = VectorXd(input);
 
   // initial covariance matrix
   // P_ = MatrixXd(5, 5);
-  P_ = MatrixXd(2, 2);
+  // P_ = MatrixXd(2, 2);
+  P_ = MatrixXd(input, input);
 
   // Process noise standard deviation longitudinal acceleration in m/s^2
   std_a_ = 1; //need to tune
@@ -60,8 +63,8 @@ UKF::UKF() {
   // n_sig_ = 2 * n_aug_ + 1;
 
   // input amount
-  n_x_ = 2;
-  n_aug_ = 4;
+  n_x_ = input;
+  n_aug_ = input + 2;
   n_sig_ = 2 * n_aug_ + 1;
 
   // Set Sigma point spreading parameter
@@ -113,8 +116,8 @@ bool UKF::ProcessMeasurement(MeasurementPackage &meas_package) {
 
     // Set initial state values
     // x_ << 1, 1, 0, 0, 0; //px, py, v, psi, psi_dot
-    // x_ << 1, 1; //px, py, v, psi, psi_dot
-    x_ << 0, 0; //px, py, v, psi, psi_dot
+    x_ << 1, 1; //px, py, v, psi, psi_dot
+    // x_ << 1, 1, 1; //px, py, theta
 
 
 
@@ -147,8 +150,10 @@ bool UKF::ProcessMeasurement(MeasurementPackage &meas_package) {
     //Account for small values in intial measurements
     double px = meas_package.raw_measurements_[0];
     double py = meas_package.raw_measurements_[1];
+    // double pt = meas_package.raw_measurements_[2];
     x_(0) = (px > EPS) ? px : EPS;
-    x_(1) = (py > EPS) ? px : EPS;
+    x_(1) = (py > EPS) ? py : EPS;
+    // x_(2) = (pt > EPS) ? pt : EPS;
 
     //Capture the timestamp
     time_us_ = meas_package.timestamp_;
@@ -161,6 +166,10 @@ bool UKF::ProcessMeasurement(MeasurementPackage &meas_package) {
     //         0,    0,  0,  0,  50;
     P_ << 0.1,    0,
             0,  0.1;
+
+    // P_ << 0.1,    0,   0,
+    //         0,  0.1,   0,
+    //         0,    0, 0.1;   
 
     // Set weights
     double weight_0 = lambda_/(lambda_ + n_aug_);
@@ -191,21 +200,16 @@ bool UKF::ProcessMeasurement(MeasurementPackage &meas_package) {
   //cout << "x_: " << x_ << "\n";
   //cout << "P_: " << P_ << "\n"; 
 
-  // std::cerr << "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb" << std::endl;
 
   //Perform the update step 
   //LIDAR update - check to make sure the use_laser_ flag is on and that a non-zero measurement is recieved for px and py
   if (meas_package.sensor_type_ == MeasurementPackage::LASER && use_laser_ 
-  	&& !(fabs(meas_package.raw_measurements_[0]) < EPS && fabs(meas_package.raw_measurements_[1]) < EPS)) {
-    
-  // std::cerr << "cccccccccccccccccccccccccccccccccccc" << std::endl;
+  	&& !(fabs(meas_package.raw_measurements_[0]) < EPS && fabs(meas_package.raw_measurements_[1]) < EPS && fabs(meas_package.raw_measurements_[2]) < EPS)) {
 
     UpdateLidar(meas_package);
     // cout << "Using LIDAR measurement to update...\n";
     // cout << "x_: " << x_ << "\n";
     // cout << "P_: " << P_ << "\n";  
-    // std::cerr << "dddddddddddddddddddddddddd" << std::endl;
-
   } 
   else {
 
@@ -231,6 +235,8 @@ void UKF::Prediction(double delta_t) {
   // MatrixXd P_aug = MatrixXd::Zero(7, 7);
   VectorXd x_aug = VectorXd::Zero(4);
   MatrixXd P_aug = MatrixXd::Zero(4, 4);
+  // VectorXd x_aug = VectorXd::Zero(5);
+  // MatrixXd P_aug = MatrixXd::Zero(5, 5);
   // n_aug_ : 擴展向量的維度（狀態向量的維度加上雜訊向量的維度）
   // n_sig_ : sigma點的數量, 通常設定為 2*n_aug_ + 1, 其中包含中心點
   MatrixXd Xsig_aug = MatrixXd::Zero(n_aug_, n_sig_);
@@ -264,14 +270,17 @@ void UKF::Prediction(double delta_t) {
     // function head(x) -> 前x個向量
     // VectorXd posterior = posterior_aug.head(5);
     VectorXd posterior = posterior_aug.head(2);
+    // VectorXd posterior = posterior_aug.head(3);
 
     //Initialize the vector to hold the output of the process model
     // VectorXd fx = VectorXd::Zero(5);
     VectorXd fx = VectorXd::Zero(2);
+    // VectorXd fx = VectorXd::Zero(3);
 
     //Initialize the noise vector to zero
     // VectorXd noise = VectorXd::Zero(5);
     VectorXd noise = VectorXd::Zero(2);
+    // VectorXd noise = VectorXd::Zero(3);
 
     //Calculate the noise vector
     // noise << 0.5 * (delta_t2) * cos(posterior_aug(3)) * posterior_aug(5),
@@ -282,6 +291,10 @@ void UKF::Prediction(double delta_t) {
 
     noise << 0,
              0;
+
+    // noise << 0,
+    //          0,
+    //          0;
 
     //check if yaw rate is close to zero
     // if (fabs(posterior(4)) < PSIDOT_EPS){
@@ -330,7 +343,6 @@ void UKF::UpdateLidar(MeasurementPackage meas_package) {
   VectorXd z = meas_package.raw_measurements_;
 
   y_ = z - H_laser_ * x_;
-
   MatrixXd S = H_laser_ * PHt + R_laser_;
   MatrixXd K = PHt * S.inverse();
 
@@ -343,9 +355,6 @@ void UKF::UpdateLidar(MeasurementPackage meas_package) {
 
   //Update covariance
   P_ = P_ - (K * H_laser_ * P_);
-  
-  // std::cerr << "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxx" << std::endl;
-  // std::cerr << x_ << std::endl;
 }
 
 void UKF::UpdateRadar(MeasurementPackage meas_package) {
@@ -422,21 +431,31 @@ void UKF::UpdateRadar(MeasurementPackage meas_package) {
 }
 
 
-void UKF::SetUKFParam(int a)
+void UKF::SetUKFParam(int a, std::string path)
 {
-  if (a == 1)
+  if (a == 1) // ORB param
   {
-    // Process noise standard deviation longitudinal acceleration in m/s^2
-    std_a_ = 1; //need to tune
+    std::string my_path = path + "/ORB_UKF_config.yaml";
 
-    // Process noise standard deviation yaw acceleration in rad/s^2
-    std_yawdd_ = 0.3; //need to tune
+    YAML::Node orb_config = YAML::LoadFile(my_path);
 
-    // Laser measurement noise standard deviation position1 in m
-    std_laspx_ = 0.15;
+    std_a_     = orb_config["std_a_"].as<double>();
+    std_yawdd_ = orb_config["std_yawdd_"].as<double>();
+    std_laspx_ = orb_config["std_laspx_"].as<double>();
+    std_laspy_ = orb_config["std_laspy_"].as<double>();
 
-    // Laser measurement noise standard deviation position2 in m
-    std_laspy_ = 0.15;
+
+    // // Process noise standard deviation longitudinal acceleration in m/s^2
+    // std_a_ = 1; //need to tune
+
+    // // Process noise standard deviation yaw acceleration in rad/s^2
+    // std_yawdd_ = 0.3; //need to tune
+
+    // // Laser measurement noise standard deviation position1 in m
+    // std_laspx_ = 0.15;
+
+    // // Laser measurement noise standard deviation position2 in m
+    // std_laspy_ = 0.15;
 
     //Initialize and set the process noise matrix
     Q_ = MatrixXd(2,2);
@@ -450,6 +469,14 @@ void UKF::SetUKFParam(int a)
     H_laser_ = MatrixXd::Zero(2,2);
     H_laser_ << 1,0,
                 0,1;
+    // H_laser_ = MatrixXd::Zero(2,3);
+    // H_laser_ << 1,0,0,
+    //             0,1,0;
+
+    // H_laser_ = MatrixXd::Zero(3,3);
+    // H_laser_ << 1,0,0,
+    //             0,1,0,
+    //             0,0,1;
 
     //Initialize the laser measurement uncertainty matrix
     R_laser_ = MatrixXd::Zero(2,2);
@@ -457,19 +484,28 @@ void UKF::SetUKFParam(int a)
                 0, std_laspy_*std_laspy_;
   }
 
-  if (a == 2)
+  if (a == 2)  // PLICP param
   {
-    // Process noise standard deviation longitudinal acceleration in m/s^2
-    std_a_ = 1; //need to tune
+    std::string my_path = path + "/PLICP_UKF_config.yaml";
 
-    // Process noise standard deviation yaw acceleration in rad/s^2
-    std_yawdd_ = 0.3; //need to tune
+    YAML::Node plicp_config = YAML::LoadFile(my_path);
 
-    // Laser measurement noise standard deviation position1 in m
-    std_laspx_ = 0.15;
+    std_a_     = plicp_config["std_a_"].as<double>();
+    std_yawdd_ = plicp_config["std_yawdd_"].as<double>();
+    std_laspx_ = plicp_config["std_laspx_"].as<double>();
+    std_laspy_ = plicp_config["std_laspy_"].as<double>();
 
-    // Laser measurement noise standard deviation position2 in m
-    std_laspy_ = 0.15;
+    // // Process noise standard deviation longitudinal acceleration in m/s^2
+    // std_a_ = 1; //need to tune
+
+    // // Process noise standard deviation yaw acceleration in rad/s^2
+    // std_yawdd_ = 0.3; //need to tune
+
+    // // Laser measurement noise standard deviation position1 in m
+    // std_laspx_ = 0.15;
+
+    // // Laser measurement noise standard deviation position2 in m
+    // std_laspy_ = 0.15;
 
     //Initialize and set the process noise matrix
     Q_ = MatrixXd(2,2);
@@ -483,6 +519,15 @@ void UKF::SetUKFParam(int a)
     H_laser_ = MatrixXd::Zero(2,2);
     H_laser_ << 1,0,
                 0,1;
+
+    // H_laser_ = MatrixXd::Zero(2,3);
+    // H_laser_ << 1,0,0,
+    //             0,1,0;
+
+    // H_laser_ = MatrixXd::Zero(3,3);
+    // H_laser_ << 1,0,0,
+    //             0,1,0,
+    //             0,0,1;
 
     //Initialize the laser measurement uncertainty matrix
     R_laser_ = MatrixXd::Zero(2,2);

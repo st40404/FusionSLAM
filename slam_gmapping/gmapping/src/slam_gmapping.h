@@ -161,7 +161,7 @@ class SlamGMapping
     // according to residual to adjust weight
     void AdjustWeight(VectorXd &a, VectorXd &b, int x);
 
-    
+    /////// compute the average and MSE of ORBSLAM2 & PLICP /////////////
     std::vector<double> AE_PLICP;             // for saving PLICP average error 
     std::vector<double> AE_ORBSLAM;           // for saving ORBSLAM2 average error
 
@@ -175,17 +175,52 @@ class SlamGMapping
     double MSE_ORBSLAM_y = 0.0;
     double MSE_ORBSLAM_sum = 0.0;
 
+    /////// compute the average and MSE of ORBSLAM2 & PLICP /////////////
+    std::vector<double> AE_UKF_ORB_odom;        // for saving UKF-ORBSLAM2(compare with odom) average error 
+    std::vector<double> AE_UKF_ORB;             // for saving UKF-ORBSLAM2(compare with ORBSLAM2) average error
+
+    double MSE_UKF_ORB_odom_x = 0.0;
+    double MSE_UKF_ORB_odom_y = 0.0;
+    double MSE_UKF_ORB_odom_sum = 0.0;
+
+    double MSE_UKF_ORB_x = 0.0;
+    double MSE_UKF_ORB_y = 0.0;
+    double MSE_UKF_ORB_sum = 0.0;
+
+
+    std::vector<double> AE_UKF_PLICP_odom;        // for saving UKF-PLICP(compare with odom) average error 
+    std::vector<double> AE_UKF_PLICP;             // for saving UKF-PLICP(compare with PLICP) average error
+
+    double MSE_UKF_PLICP_odom_x = 0.0;
+    double MSE_UKF_PLICP_odom_y = 0.0;
+    double MSE_UKF_PLICP_odom_sum = 0.0;
+
+    double MSE_UKF_PLICP_x = 0.0;
+    double MSE_UKF_PLICP_y = 0.0;
+    double MSE_UKF_PLICP_sum = 0.0;
+
+
     // compute precision of PLICP
     void Precision_PLICP(const nav_msgs::Odometry::ConstPtr& odom, double x, double y);
     // compute precision of ORB
     void Precision_ORB(const nav_msgs::Odometry::ConstPtr& odom, double x, double y);
 
+    // compute precision of PLICP in UKF
+    void Precision_UKF_PLICP(const nav_msgs::Odometry::ConstPtr& odom, double x_, double y_, double x, double y);
+    // compute precision of ORB in UKF
+    void Precision_UKF_ORB(const nav_msgs::Odometry::ConstPtr& odom, double x_, double y_, double x, double y);
+
+
+
     // add KillTrigger function of master service for kill node trigger
     bool KillTrigger(   all_process::Trigger::Request  &req,
                         all_process::Trigger::Response &res);
 
-    bool SetORBparam();
-    bool SetPLICPparam();
+    bool SetORBParam();
+    bool SetPLICPParam();
+
+    bool SetUKFORBParam();
+    bool SetUKFPLICPParam();
 
     //define config path
     std::string  config_path = "/home/ron/work/src/all_process/config.yaml";

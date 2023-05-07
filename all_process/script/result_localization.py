@@ -255,7 +255,9 @@ class Result():
 
 if __name__=='__main__':
     # orb = Result('/home/ron/work/src/all_process/data/ORB')
-    orb = Result('/home/ron/work/src/all_process/data/PLICP')
+    # orb = Result('/home/ron/work/src/all_process/data/PLICP')
+    # orb = Result('/home/ron/work/src/all_process/data/Second_tune/ORB')
+    orb = Result('/home/ron/work/src/all_process/data/Second_tune/PLICP')
     print ("\n\n\n")
     print ("====================================================")
     print ("===============    Best Result    ==================")

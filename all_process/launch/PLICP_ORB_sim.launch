@@ -83,7 +83,7 @@
     </group> -->
 
 
-    <node pkg="all_process" type="save_log.py" name="save_log" output="screen"/>
+    <node pkg="all_process" type="save_log.py" name="save_log" output="screen" required="true"/>
 
 
 </launch>

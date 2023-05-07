@@ -8,6 +8,9 @@
 #include <string>
 #include <fstream>
 
+// use to read yaml
+#include "yaml-cpp/yaml.h"
+
 using Eigen::MatrixXd;
 using Eigen::VectorXd;
 
@@ -129,7 +132,7 @@ public:
   void UpdateRadar(MeasurementPackage meas_package);
 
   // set ORBSLAM2 and PLICP param
-  void SetUKFParam(int a);
+  void SetUKFParam(int a, std::string path);
 };
 
 #endif /* UKF_H */

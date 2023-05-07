@@ -968,8 +968,8 @@ void SlamGMapping::laserCallback(const sensor_msgs::LaserScan::ConstPtr& scan, c
         meas_init_pose.sensor_type_ = MeasurementPackage::LASER;
 
         // init ORBSLAM2 and PLICP parameter
-        orb_ukf.SetUKFParam(1);
-        plicp_ukf.SetUKFParam(2);
+        orb_ukf.SetUKFParam(1, log_path);
+        plicp_ukf.SetUKFParam(2, log_path);
 
         got_first_scan_ = orb_ukf.ProcessMeasurement(meas_init_pose);
         got_first_scan_ = plicp_ukf.ProcessMeasurement(meas_init_pose);
@@ -1018,17 +1018,16 @@ void SlamGMapping::laserCallback(const sensor_msgs::LaserScan::ConstPtr& scan, c
         last_ORB_pose.y = srv.response.y;
         last_ORB_pose.theta = srv.response.z;
 
-        Precision_ORB(odom, srv.response.x, srv.response.y);
-        Precision_PLICP(odom, lcp_current_pose.x,  lcp_current_pose.y);
+        // Precision_ORB(odom, srv.response.x, srv.response.y);
+        // Precision_PLICP(odom, lcp_current_pose.x,  lcp_current_pose.y);
 
         // put ORB pose variety and PLICP pose variety into Unscented Kalman Filter
         // ORB pose part
         meas_ORB_pose.raw_measurements_ = VectorXd(2);
-        // meas_ORB_pose.raw_measurements_ << ORB_current_change.x, ORB_current_change.y;
         meas_ORB_pose.raw_measurements_ << srv.response.x, srv.response.y;
 
         // meas_ORB_pose.raw_measurements_ = VectorXd(3);
-        // meas_ORB_pose.raw_measurements_ << ORB_current_change.x, ORB_current_change.y, ORB_current_change.theta;
+        // meas_ORB_pose.raw_measurements_ << srv.response.x, srv.response.y, srv.response.z;
 
         meas_ORB_pose.timestamp_ = srv.request.sec * 1000000000 + srv.request.nsec;
         meas_ORB_pose.sensor_type_ = MeasurementPackage::LASER;
@@ -1036,37 +1035,26 @@ void SlamGMapping::laserCallback(const sensor_msgs::LaserScan::ConstPtr& scan, c
 
         // PLICP pose part
         meas_PLICP_pose.raw_measurements_ = VectorXd(2);
-        // meas_PLICP_pose.raw_measurements_ << output_.x[0], output_.x[1];
         meas_PLICP_pose.raw_measurements_ << lcp_current_pose.x, lcp_current_pose.y;
 
         // meas_PLICP_pose.raw_measurements_ = VectorXd(3);
-        // meas_PLICP_pose.raw_measurements_ << output_.x[0], output_.x[1], output_.x[2];
+        // meas_PLICP_pose.raw_measurements_ << lcp_current_pose.x, lcp_current_pose.y, lcp_current_pose.theta;
 
         meas_PLICP_pose.timestamp_ = srv.request.sec * 1000000000 + srv.request.nsec;
         meas_PLICP_pose.sensor_type_ = MeasurementPackage::LASER;
 
-        // std::cerr << "aaaaaaaaaaaaaaaaaaaaaaaaaaaa" << std::endl;
-
         bool flag_orb, flag_plicp;
+        flag_orb = false;
+        flag_plicp = false;
+
         flag_orb = orb_ukf.ProcessMeasurement(meas_ORB_pose);
         flag_plicp = plicp_ukf.ProcessMeasurement(meas_PLICP_pose);
 
-        // std::cerr << ORB_current_change.x << "  " << PLICP_weight(0) << std::endl;
-        // std::cerr << ORB_current_change.y << "  " << PLICP_weight(1) << std::endl;
-        // std::cerr << ORB_current_change.theta << "  " << PLICP_weight(1) << std::endl;
-
-        // std::cerr << "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa" << std::endl;
-
-        // std::cerr << output_.x[0] << "  " << output_.x[1] << "  " << output_.x[2] << std::endl;
-        // std::cerr << ORB_current_change.x << "  " << ORB_current_change.y << "  " << ORB_current_change.theta << std::endl;
-
-
-        //  std::cerr << srv.response.x << "  " << srv.response.y << "  " << srv.response.z << std::endl;
+        Precision_UKF_ORB(odom, srv.response.x, srv.response.y, orb_ukf.x_[0], orb_ukf.x_[1]);
+        Precision_UKF_PLICP(odom, lcp_current_pose.x,  lcp_current_pose.y, plicp_ukf.x_[0], plicp_ukf.x_[1]);
 
         if (flag_orb == true && flag_plicp == true)
         {
-          // std::cerr << "asasasasasasasasasasasasasasasaasas" << std::endl;
-
           // save the residual
           SaveResidual();
           HypothesisTesting();
@@ -1075,7 +1063,7 @@ void SlamGMapping::laserCallback(const sensor_msgs::LaserScan::ConstPtr& scan, c
           // std::cerr << ORB_weight(1) << "  " << PLICP_weight(1) << std::endl;
 
         }
-
+        
         // best_pose.x = last_odom_pose.x + ORB_weight(0)*orb_ukf.x_[0] + PLICP_weight(0)*plicp_ukf.x_[0];
         // best_pose.y = last_odom_pose.y + ORB_weight(1)*orb_ukf.x_[1] + PLICP_weight(1)*plicp_ukf.x_[1];
         best_pose.x = ORB_weight(0)*orb_ukf.x_[0] + PLICP_weight(0)*plicp_ukf.x_[0];
@@ -1702,22 +1690,81 @@ void SlamGMapping::Precision_ORB(const nav_msgs::Odometry::ConstPtr& odom, doubl
 }
 
 
+// compute precision of PLICP in UKF
+void SlamGMapping::Precision_UKF_PLICP(const nav_msgs::Odometry::ConstPtr& odom, double x_, double y_, double x, double y)
+{
+  // compute average error and MSE by position of UKF and Gazebo
+  AE_UKF_PLICP_odom.push_back( abs(odom->pose.pose.position.x - x ));
+  AE_UKF_PLICP_odom.push_back( abs(odom->pose.pose.position.y - y ));
+
+  double flag_x = pow(odom->pose.pose.position.x - x, 2);
+  double flag_y = pow(odom->pose.pose.position.y - y, 2);
+  MSE_UKF_PLICP_odom_x   += flag_x; 
+  MSE_UKF_PLICP_odom_y   += flag_y; 
+  MSE_UKF_PLICP_odom_sum += flag_x + flag_y;
+
+
+  // compute MSE by position of ORBSLAM2-UKF and ORBSLAM2 
+  AE_UKF_PLICP.push_back( abs(x_ - x ));
+  AE_UKF_PLICP.push_back( abs(y_ - y ));
+
+  flag_x = pow(x_ - x, 2);
+  flag_y = pow(y_ - y, 2);
+  MSE_UKF_PLICP_x   += flag_x; 
+  MSE_UKF_PLICP_y   += flag_y; 
+  MSE_UKF_PLICP_sum += flag_x + flag_y;
+}
+// compute precision of ORB in UKF
+void SlamGMapping::Precision_UKF_ORB(const nav_msgs::Odometry::ConstPtr& odom, double x_, double y_, double x, double y)
+{
+  // compute average error and MSE by position of UKF and Gazebo
+  AE_UKF_ORB_odom.push_back( abs(odom->pose.pose.position.x - x ));
+  AE_UKF_ORB_odom.push_back( abs(odom->pose.pose.position.y - y ));
+
+  double flag_x = pow(odom->pose.pose.position.x - x, 2);
+  double flag_y = pow(odom->pose.pose.position.y - y, 2);
+  MSE_UKF_ORB_odom_x   += flag_x; 
+  MSE_UKF_ORB_odom_y   += flag_y; 
+  MSE_UKF_ORB_odom_sum += flag_x + flag_y;
+
+
+  // compute MSE by position of ORBSLAM2-UKF and ORBSLAM2 
+  AE_UKF_ORB.push_back( abs(x_ - x ));
+  AE_UKF_ORB.push_back( abs(y_ - y ));
+
+  flag_x = pow(x_ - x, 2);
+  flag_y = pow(y_ - y, 2);
+  MSE_UKF_ORB_x   += flag_x; 
+  MSE_UKF_ORB_y   += flag_y; 
+  MSE_UKF_ORB_sum += flag_x + flag_y;
+}
+
+
+
 bool SlamGMapping::KillTrigger(  all_process::Trigger::Request  &req,
                                  all_process::Trigger::Response &res)
 {
   bool flag_orb;
   bool flag_plicp;
 
-  flag_orb = SetORBparam();
-  flag_plicp = SetPLICPparam();
+  // tuning ORB and PLICP param
+  // flag_orb = SetORBParam();
+  // flag_plicp = SetPLICPParam();
 
-  if (flag_orb == true && flag_plicp == true)
+  // tuning ORB and PLICP param
+  flag_orb = SetUKFORBParam();
+  flag_plicp = SetUKFPLICPParam();
+
+  if (flag_orb == true || flag_plicp == true)
+
+    res.trigger = true;
     return true;
-  if (flag_orb == false || flag_plicp == false)
+  if (flag_orb == false && flag_plicp == false)
+    res.trigger = false;
     return false;
 }
 
-bool SlamGMapping::SetORBparam()
+bool SlamGMapping::SetORBParam()
 {
   YAML::Node orb_config = YAML::LoadFile(orb_path);
 
@@ -1765,7 +1812,7 @@ bool SlamGMapping::SetORBparam()
   int minThFAST_min = 7;
   int minThFAST_add = 2;
 
-  int iniThFAST_max = 36;
+  int iniThFAST_max = 27;
   int iniThFAST_min = 21;
   int iniThFAST_add = 3;
 
@@ -1775,11 +1822,8 @@ bool SlamGMapping::SetORBparam()
       if ( nLevels >= nLevels_max )
         if ( minThFAST >= minThFAST_max )
           if ( iniThFAST >= iniThFAST_max )
-          {
-            std::cerr << "fuckkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkk" << std::endl;
-            std::cerr << "ORB finish" << std::endl;
-            return true;
-          }
+            return false;
+
 
   //compute average error
   float sum = 0;
@@ -1853,7 +1897,7 @@ bool SlamGMapping::SetORBparam()
 }
 
 
-bool SlamGMapping::SetPLICPparam()
+bool SlamGMapping::SetPLICPParam()
 {
   YAML::Node plicp_config = YAML::LoadFile(plicp_path);
 
@@ -1988,11 +2032,7 @@ bool SlamGMapping::SetPLICPparam()
               if (outliers_maxPerc >= Perc_min && outliers_maxPerc < Perc_max)
                 plicp_config["outliers_maxPerc"] = outliers_maxPerc + Perc_add;
               else
-              {
-                std::cerr << "fuxkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkk" << std::endl;
-                std::cerr << "PLICP finish" << std::endl;
                 return false;
-              }
             }
           // }
         // }
@@ -2007,6 +2047,253 @@ bool SlamGMapping::SetPLICPparam()
   fout.close();
   return true;
 }
+
+bool SlamGMapping::SetUKFORBParam()
+{
+  std::string my_path = log_path + "/ORB_UKF_config.yaml";
+
+  YAML::Node orb_config = YAML::LoadFile(my_path);
+
+  double std_a_     = orb_config["std_a_"].as<double>();
+  double std_yawdd_ = orb_config["std_yawdd_"].as<double>();
+  double std_laspx_ = orb_config["std_laspx_"].as<double>();
+  double std_laspy_ = orb_config["std_laspy_"].as<double>();
+
+  // adjust the param setting (first tune)
+  double a_max = 1.8;
+  double a_min = 0.2;
+  double a_add = 0.2;
+
+  double yawdd_max = 0.5;
+  double yawdd_min = 0.05;
+  double yawdd_add = 0.05;
+
+  double laspx_max = 0.18;
+  double laspx_min = 0.03;
+  double laspx_add = 0.03;
+
+  double laspy_max = 0.09;
+  double laspy_min = 0.03;
+  double laspy_add = 0.03;
+
+
+  //compute average error
+  float sum_odom = 0;
+  float sum = 0;
+  for (int i=0; i<AE_UKF_ORB.size(); i++)
+  {
+    sum_odom += AE_UKF_ORB_odom[i];
+    sum      += AE_UKF_ORB[i];
+  }
+
+  sum_odom = sum_odom/AE_UKF_ORB_odom.size();
+  sum      = sum/AE_UKF_ORB.size();
+
+
+
+  MSE_UKF_ORB_x = MSE_UKF_ORB_x/AE_UKF_ORB.size()*2;
+  MSE_UKF_ORB_y = MSE_UKF_ORB_y/AE_UKF_ORB.size()*2;
+  MSE_UKF_ORB_sum = MSE_UKF_ORB_sum/AE_UKF_ORB.size();
+
+  MSE_UKF_ORB_odom_x = MSE_UKF_ORB_odom_x/AE_UKF_ORB_odom.size()*2;
+  MSE_UKF_ORB_odom_y = MSE_UKF_ORB_odom_y/AE_UKF_ORB_odom.size()*2;
+  MSE_UKF_ORB_odom_sum = MSE_UKF_ORB_odom_sum/AE_UKF_ORB_odom.size();
+
+  std::fstream logFile_ORB;
+  std::fstream logFile_ORB_odom;
+
+  // Open File
+  std::string odom_path  = log_path + "/data/ORB/ORB_odom/log_" + std::to_string(std_laspx_) + '_' + std::to_string(std_laspy_) + ".txt";
+  std::string ORB_path2 = log_path + "/data/ORB/ORB/log_" + std::to_string(std_laspx_) + '_' + std::to_string(std_laspy_) + ".txt";
+
+  logFile_ORB.open( ORB_path2, std::ios::app);
+
+  //Write data into log file
+  logFile_ORB << "a:"      + std::to_string(std_a_);
+  logFile_ORB << " yawdd:" + std::to_string(std_yawdd_);
+  logFile_ORB << " laspx:" + std::to_string(std_laspx_);
+  logFile_ORB << " laspy:" + std::to_string(std_laspy_);
+
+  logFile_ORB << "---avg:"   + std::to_string(sum);
+  logFile_ORB << " mseX:"    + std::to_string(MSE_UKF_ORB_x);
+  logFile_ORB << " mseY:"    + std::to_string(MSE_UKF_ORB_y);
+  logFile_ORB << " mseS:"    + std::to_string(MSE_UKF_ORB_sum);
+  logFile_ORB << "\n";
+  // close file stream
+  logFile_ORB.close();
+
+  logFile_ORB_odom.open( odom_path, std::ios::app);
+  //Write data into log file
+  logFile_ORB_odom << "a:"      + std::to_string(std_a_);
+  logFile_ORB_odom << " yawdd:" + std::to_string(std_yawdd_);
+  logFile_ORB_odom << " laspx:" + std::to_string(std_laspx_);
+  logFile_ORB_odom << " laspy:" + std::to_string(std_laspy_);
+
+  logFile_ORB_odom << "---avg:"   + std::to_string(sum);
+  logFile_ORB_odom << " mseX:"    + std::to_string(MSE_UKF_ORB_odom_x);
+  logFile_ORB_odom << " mseY:"    + std::to_string(MSE_UKF_ORB_odom_y);
+  logFile_ORB_odom << " mseS:"    + std::to_string(MSE_UKF_ORB_odom_sum);
+  logFile_ORB_odom << "\n";
+  // close file stream
+  logFile_ORB_odom.close();
+
+  if (std_a_ >= a_min && std_a_ < a_max)
+    orb_config["std_a_"] = std_a_ + a_add;
+  else 
+  {
+    orb_config["std_a_"] = a_min;
+
+    if (std_yawdd_ >= yawdd_min && std_yawdd_ < yawdd_max)
+      orb_config["std_yawdd_"] = std_yawdd_ + yawdd_add;
+    else
+    {
+      orb_config["std_yawdd_"] = yawdd_min;
+
+      if (std_laspx_ >= laspx_min && std_laspx_ < laspx_max)
+        orb_config["std_laspx_"] = std_laspx_ + laspx_add;
+      else
+      {
+        orb_config["std_laspx_"] = laspx_min;
+        if (std_laspy_ >= laspy_min && std_laspy_ < laspy_max)
+          orb_config["std_laspy_"] = std_laspy_ + laspy_add;
+        else
+          return false;
+      }
+    }
+  }
+
+  std::ofstream fout(my_path);
+  YAML::Emitter orb_emitter;
+  orb_emitter << orb_config;
+  fout << orb_emitter.c_str();
+  fout.close();
+  return true; 
+}
+
+
+
+bool SlamGMapping::SetUKFPLICPParam()
+{
+  std::string my_path = log_path + "/PLICP_UKF_config.yaml";
+
+  YAML::Node plicp_config = YAML::LoadFile(my_path);
+
+  double std_a_     = plicp_config["std_a_"].as<double>();
+  double std_yawdd_ = plicp_config["std_yawdd_"].as<double>();
+  double std_laspx_ = plicp_config["std_laspx_"].as<double>();
+  double std_laspy_ = plicp_config["std_laspy_"].as<double>();
+
+  // adjust the param setting (first tune)
+  double a_max = 1.8;
+  double a_min = 0.2;
+  double a_add = 0.2;
+
+  double yawdd_max = 0.5;
+  double yawdd_min = 0.05;
+  double yawdd_add = 0.05;
+
+  double laspx_max = 0.18;
+  double laspx_min = 0.03;
+  double laspx_add = 0.03;
+
+  double laspy_max = 0.09;
+  double laspy_min = 0.03;
+  double laspy_add = 0.03;
+
+
+  //compute average error
+  float sum_odom = 0;
+  float sum = 0;
+  for (int i=0; i<AE_UKF_PLICP.size(); i++)
+  {
+    sum_odom += AE_UKF_PLICP_odom[i];
+    sum      += AE_UKF_PLICP[i];
+  }
+
+  sum_odom = sum_odom/AE_UKF_PLICP_odom.size();
+  sum      = sum/AE_UKF_PLICP.size();
+
+
+
+  MSE_UKF_PLICP_x = MSE_UKF_PLICP_x/AE_UKF_PLICP.size()*2;
+  MSE_UKF_PLICP_y = MSE_UKF_PLICP_y/AE_UKF_PLICP.size()*2;
+  MSE_UKF_PLICP_sum = MSE_UKF_PLICP_sum/AE_UKF_PLICP.size();
+
+  MSE_UKF_PLICP_odom_x = MSE_UKF_PLICP_odom_x/AE_UKF_PLICP_odom.size()*2;
+  MSE_UKF_PLICP_odom_y = MSE_UKF_PLICP_odom_y/AE_UKF_PLICP_odom.size()*2;
+  MSE_UKF_PLICP_odom_sum = MSE_UKF_PLICP_odom_sum/AE_UKF_PLICP_odom.size();
+
+  std::fstream logFile_PLICP;
+  std::fstream logFile_PLICP_odom;
+
+  // Open File
+  std::string odom_path  = log_path + "/data/PLICP/PLICP_odom/log_" + std::to_string(std_laspx_) + '_' + std::to_string(std_laspy_) + ".txt";
+  std::string PLICP_path2 = log_path + "/data/PLICP/PLICP/log_" + std::to_string(std_laspx_) + '_' + std::to_string(std_laspy_) + ".txt";
+
+  logFile_PLICP.open( PLICP_path2, std::ios::app);
+
+  //Write data into log file
+  logFile_PLICP << "a:"      + std::to_string(std_a_);
+  logFile_PLICP << " yawdd:" + std::to_string(std_yawdd_);
+  logFile_PLICP << " laspx:" + std::to_string(std_laspx_);
+  logFile_PLICP << " laspy:" + std::to_string(std_laspy_);
+
+  logFile_PLICP << "---avg:"   + std::to_string(sum);
+  logFile_PLICP << " mseX:"    + std::to_string(MSE_UKF_PLICP_x);
+  logFile_PLICP << " mseY:"    + std::to_string(MSE_UKF_PLICP_y);
+  logFile_PLICP << " mseS:"    + std::to_string(MSE_UKF_PLICP_sum);
+  logFile_PLICP << "\n";
+  // close file stream
+  logFile_PLICP.close();
+
+  logFile_PLICP_odom.open( odom_path, std::ios::app);
+  //Write data into log file
+  logFile_PLICP_odom << "a:"      + std::to_string(std_a_);
+  logFile_PLICP_odom << " yawdd:" + std::to_string(std_yawdd_);
+  logFile_PLICP_odom << " laspx:" + std::to_string(std_laspx_);
+  logFile_PLICP_odom << " laspy:" + std::to_string(std_laspy_);
+
+  logFile_PLICP_odom << "---avg:"   + std::to_string(sum);
+  logFile_PLICP_odom << " mseX:"    + std::to_string(MSE_UKF_PLICP_odom_x);
+  logFile_PLICP_odom << " mseY:"    + std::to_string(MSE_UKF_PLICP_odom_y);
+  logFile_PLICP_odom << " mseS:"    + std::to_string(MSE_UKF_PLICP_odom_sum);
+  logFile_PLICP_odom << "\n";
+  // close file stream
+  logFile_PLICP_odom.close();
+
+  if (std_a_ >= a_min && std_a_ < a_max)
+    plicp_config["std_a_"] = std_a_ + a_add;
+  else 
+  {
+    plicp_config["std_a_"] = a_min;
+
+    if (std_yawdd_ >= yawdd_min && std_yawdd_ < yawdd_max)
+      plicp_config["std_yawdd_"] = std_yawdd_ + yawdd_add;
+    else
+    {
+      plicp_config["std_yawdd_"] = yawdd_min;
+
+      if (std_laspx_ >= laspx_min && std_laspx_ < laspx_max)
+        plicp_config["std_laspx_"] = std_laspx_ + laspx_add;
+      else
+      {
+        plicp_config["std_laspx_"] = laspx_min;
+        if (std_laspy_ >= laspy_min && std_laspy_ < laspy_max)
+          plicp_config["std_laspy_"] = std_laspy_ + laspy_add;
+        else
+          return false;
+      }
+    }
+  }
+
+  std::ofstream fout(my_path);
+  YAML::Emitter plicp_emitter;
+  plicp_emitter << plicp_config;
+  fout << plicp_emitter.c_str();
+  fout.close();
+  return true;
+}
+
 
 void SlamGMapping::SaveResidual()
 {
