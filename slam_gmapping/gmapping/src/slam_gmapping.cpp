@@ -802,6 +802,9 @@ void SlamGMapping::laserCallback(const sensor_msgs::LaserScan::ConstPtr& scan, c
 
       std::cerr << "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa" << std::endl;
       std::cerr << mpose.x << "  " << mpose.y << "  " << mpose.theta << std::endl;
+      std::cerr << odom_pose.x << "  " << odom_pose.y << "  " << odom_pose.theta << std::endl;
+      // std::cerr << odom->pose.pose.position.x << "  " << odom->pose.pose.position.y << " " << odom->pose.pose.position.z << std::endl;
+
 
       ROS_DEBUG("new best pose: %.3f %.3f %.3f", mpose.x, mpose.y, mpose.theta);
       ROS_DEBUG("odom pose: %.3f %.3f %.3f", odom_pose.x, odom_pose.y, odom_pose.theta);
@@ -809,6 +812,8 @@ void SlamGMapping::laserCallback(const sensor_msgs::LaserScan::ConstPtr& scan, c
 
       // laser_to_map : lidar pose in map frame
       // odom_to_laser : lidar pose in odom frame
+      // tf::Transform laser_to_map = tf::Transform(tf::createQuaternionFromRPY(0, 0, odom_pose.theta), tf::Vector3(odom_pose.x, odom_pose.y, 0.0)).inverse();
+
       tf::Transform laser_to_map = tf::Transform(tf::createQuaternionFromRPY(0, 0, mpose.theta), tf::Vector3(mpose.x, mpose.y, 0.0)).inverse();
       tf::Transform odom_to_laser = tf::Transform(tf::createQuaternionFromRPY(0, 0, odom_pose.theta), tf::Vector3(odom_pose.x, odom_pose.y, 0.0));
 
@@ -884,13 +889,21 @@ void SlamGMapping::laserCallback(const sensor_msgs::LaserScan::ConstPtr& scan, c
       // std::cerr << odom_pose.x << " " << odom_pose.y << " " << odom_pose.theta << std::endl;
 
 
-      lcp_current_pose.x = last_odom_pose.x + output_.x[0];
-      lcp_current_pose.y = last_odom_pose.y + output_.x[1];
-      lcp_current_pose.theta = last_odom_pose.theta + output_.x[2];
-      last_odom_pose = odom_pose;
+      // lcp_current_pose.x = last_odom_pose.x + output_.x[0];
+      // lcp_current_pose.y = last_odom_pose.y + output_.x[1];
+      // lcp_current_pose.theta = last_odom_pose.theta + output_.x[2];
+      // last_odom_pose = odom_pose;
+
+      last_odom_pose.x += output_.x[0];
+      last_odom_pose.y += output_.x[1];
+      last_odom_pose.theta += output_.x[2];
+      // last_odom_pose = odom_pose;
+
+      // std::cerr << "aaaaaaaaaaaaaaaaaaaaaaaaaaaa" << std::endl;
+      // std::cerr << odom_pose.x << "  " << odom_pose.y << " " << odom_pose.theta << std::endl;
 
 
-      Precision_PLICP(odom, lcp_current_pose.x, lcp_current_pose.y);
+      Precision_PLICP(odom, last_odom_pose.x, last_odom_pose.y);
 
 
       ROS_DEBUG("new best pose: %.3f %.3f %.3f", lcp_current_pose.x, lcp_current_pose.y, lcp_current_pose.theta);
@@ -900,7 +913,7 @@ void SlamGMapping::laserCallback(const sensor_msgs::LaserScan::ConstPtr& scan, c
 
       // laser_to_map : lidar pose in map frame
       // odom_to_laser : lidar pose in odom frame
-      tf::Transform laser_to_map = tf::Transform(tf::createQuaternionFromRPY(0, 0, lcp_current_pose.theta), tf::Vector3(lcp_current_pose.x, lcp_current_pose.y, 0.0)).inverse();
+      tf::Transform laser_to_map = tf::Transform(tf::createQuaternionFromRPY(0, 0, last_odom_pose.theta), tf::Vector3(last_odom_pose.x, last_odom_pose.y, 0.0)).inverse();
       tf::Transform odom_to_laser = tf::Transform(tf::createQuaternionFromRPY(0, 0, odom_pose.theta), tf::Vector3(odom_pose.x, odom_pose.y, 0.0));
 
       // map_to_odom_ : compute relationship between odom frame and map frame
@@ -952,9 +965,15 @@ void SlamGMapping::laserCallback(const sensor_msgs::LaserScan::ConstPtr& scan, c
         CreateCache(scan);
         LaserScanToLDP(scan, prev_ldp_scan_);
         last_icp_time_ = scan->header.stamp;
-        last_ORB_pose.x = srv.response.x;
-        last_ORB_pose.y = srv.response.y;
-        last_ORB_pose.theta = srv.response.z;
+        // last_ORB_pose.x = srv.response.x;
+        // last_ORB_pose.y = srv.response.y;
+        // last_ORB_pose.theta = srv.response.z;
+        
+        ////////////////  Initialize PLICP position with ORBSLAM2's initialize pose ///////////
+        // last_odom_pose.x     = srv.response.x;
+        // last_odom_pose.y     = srv.response.y;
+        // last_odom_pose.theta = srv.response.z;
+
 
 
         // UKF params
@@ -1014,9 +1033,9 @@ void SlamGMapping::laserCallback(const sensor_msgs::LaserScan::ConstPtr& scan, c
         // ORB_current_change.y = srv.response.y - last_ORB_pose.y;
         // ORB_current_change.theta = srv.response.z - last_ORB_pose.theta;
 
-        last_ORB_pose.x = srv.response.x;
-        last_ORB_pose.y = srv.response.y;
-        last_ORB_pose.theta = srv.response.z;
+        // last_ORB_pose.x = srv.response.x;
+        // last_ORB_pose.y = srv.response.y;
+        // last_ORB_pose.theta = srv.response.z;
 
         // Precision_ORB(odom, srv.response.x, srv.response.y);
         // Precision_PLICP(odom, lcp_current_pose.x,  lcp_current_pose.y);
@@ -1055,7 +1074,7 @@ void SlamGMapping::laserCallback(const sensor_msgs::LaserScan::ConstPtr& scan, c
 
         if (flag_orb == true && flag_plicp == true)
         {
-          // save the residual
+          // save the recent amount (param: residual_sum) of residual
           SaveResidual();
           HypothesisTesting();
 
@@ -1064,18 +1083,42 @@ void SlamGMapping::laserCallback(const sensor_msgs::LaserScan::ConstPtr& scan, c
 
         }
         
+        std::cerr << "aaaaaaaaaaaaaaaaaaaaaaaaaaaa" << std::endl;
+        // std::cerr << odom->pose.pose.position.x << "  " << odom->pose.pose.position.y << " " << odom->pose.pose.position.z << std::endl;
+        // std::cerr << lcp_current_pose.x << "  " << lcp_current_pose.y << " " << lcp_current_pose.theta << std::endl;
+        // std::cerr << plicp_ukf.x_[0] << "  " << plicp_ukf.x_[1] << std::endl;
+        // std::cerr << srv.response.x << "  " << srv.response.y << " " << srv.response.z << std::endl;
+        // std::cerr << orb_ukf.x_[0] << "  " << orb_ukf.x_[1] << std::endl;
+        
+        std::cerr << odom_pose.x << "  " << odom_pose.y << " " << odom_pose.theta << std::endl;
+
+
+
         // best_pose.x = last_odom_pose.x + ORB_weight(0)*orb_ukf.x_[0] + PLICP_weight(0)*plicp_ukf.x_[0];
         // best_pose.y = last_odom_pose.y + ORB_weight(1)*orb_ukf.x_[1] + PLICP_weight(1)*plicp_ukf.x_[1];
-        best_pose.x = ORB_weight(0)*orb_ukf.x_[0] + PLICP_weight(0)*plicp_ukf.x_[0];
-        best_pose.y = ORB_weight(1)*orb_ukf.x_[1] + PLICP_weight(1)*plicp_ukf.x_[1];
+
+
+        best_pose.x = 0.5 * lcp_current_pose.x + 0.5 * srv.response.x;
+        best_pose.y = 0.5 * lcp_current_pose.y + 0.5 * srv.response.y;
+
+        // best_pose.x = ORB_weight(0)*orb_ukf.x_[0] + PLICP_weight(0)*plicp_ukf.x_[0];
+        // best_pose.y = ORB_weight(1)*orb_ukf.x_[1] + PLICP_weight(1)*plicp_ukf.x_[1];
         best_pose.theta = odom_pose.theta;
+
+
         // best_pose.theta = last_odom_pose.theta + ORB_weight(2)*orb_ukf.x_[2] + PLICP_weight(2)*plicp_ukf.x_[2];
       
         // best_pose.x = last_odom_pose.x + ORB_weight(0)*ORB_current_change.x + PLICP_weight(0)*output_.x[0];
         // best_pose.y = last_odom_pose.y + ORB_weight(1)*ORB_current_change.y + PLICP_weight(1)*output_.x[1];
         // best_pose.theta = last_odom_pose.theta + ORB_weight(2)*ORB_current_change.theta + PLICP_weight(2)*output_.x[2];
 
-        last_odom_pose = odom_pose;
+        ////////////////  each PLICP varience add with last period's odom_pose ///////////
+        // last_odom_pose = odom_pose;
+
+        ////////////////  each PLICP varience add it's self ///////////
+        last_odom_pose.x     = lcp_current_pose.x;
+        last_odom_pose.y     = lcp_current_pose.y;
+        last_odom_pose.theta = lcp_current_pose.theta;
 
 
         ROS_DEBUG("new best pose: %.3f %.3f %.3f", best_pose.x, best_pose.y, lcp_current_pose.theta);
@@ -1084,7 +1127,10 @@ void SlamGMapping::laserCallback(const sensor_msgs::LaserScan::ConstPtr& scan, c
 
         // laser_to_map : lidar pose in map frame
         // odom_to_laser : lidar pose in odom frame
-        tf::Transform laser_to_map = tf::Transform(tf::createQuaternionFromRPY(0, 0, best_pose.theta), tf::Vector3(best_pose.x, best_pose.y, 0.0)).inverse();
+        // tf::Transform laser_to_map = tf::Transform(tf::createQuaternionFromRPY(0, 0, srv.response.z+M_PI), tf::Vector3(srv.response.x, srv.response.y, 0.0)).inverse();
+        tf::Transform laser_to_map = tf::Transform(tf::createQuaternionFromRPY(0, 0, lcp_current_pose.theta), tf::Vector3(lcp_current_pose.x, lcp_current_pose.y, 0.0)).inverse();
+
+        // tf::Transform laser_to_map = tf::Transform(tf::createQuaternionFromRPY(0, 0, best_pose.theta), tf::Vector3(best_pose.x, best_pose.y, 0.0)).inverse();
         tf::Transform odom_to_laser = tf::Transform(tf::createQuaternionFromRPY(0, 0, odom_pose.theta), tf::Vector3(odom_pose.x, odom_pose.y, 0.0));
 
         // map_to_odom_ : compute relationship between odom frame and map frame
@@ -1744,16 +1790,16 @@ void SlamGMapping::Precision_UKF_ORB(const nav_msgs::Odometry::ConstPtr& odom, d
 bool SlamGMapping::KillTrigger(  all_process::Trigger::Request  &req,
                                  all_process::Trigger::Response &res)
 {
-  bool flag_orb;
+  bool flag_orb = false;
   bool flag_plicp;
 
   // tuning ORB and PLICP param
   // flag_orb = SetORBParam();
-  // flag_plicp = SetPLICPParam();
+  flag_plicp = SetPLICPParam();
 
   // tuning ORB and PLICP param
-  flag_orb = SetUKFORBParam();
-  flag_plicp = SetUKFPLICPParam();
+  // flag_orb = SetUKFORBParam();
+  // flag_plicp = SetUKFPLICPParam();
 
   if (flag_orb == true || flag_plicp == true)
 
@@ -1939,25 +1985,51 @@ bool SlamGMapping::SetPLICPParam()
   // float Perc_add = 0.1;
 
     // adjust the param setting (second tune)
-  float deg_max = 360.0;
-  float deg_min = 180.0;
-  float deg_add = 60.0;
+  // float deg_max = 360.0;
+  // float deg_min = 180.0;
+  // float deg_add = 60.0;
 
-  float cor_max = 0.6;
-  float cor_min = 0.2;
-  float cor_add = 0.1;
+  // float cor_max = 0.6;
+  // float cor_min = 0.2;
+  // float cor_add = 0.1;
 
-  int itera_max = 7;
-  int itera_min = 4;
-  int itera_add = 1;
+  // int itera_max = 7;
+  // int itera_min = 4;
+  // int itera_add = 1;
 
-  float dist_max = 0.7;
-  float dist_min = 0.4;
-  float dist_add = 0.1;
+  // float dist_max = 0.7;
+  // float dist_min = 0.4;
+  // float dist_add = 0.1;
 
-  float Perc_max = 0.7;
-  float Perc_min = 0.6;
-  float Perc_add = 0.1;
+  // float Perc_max = 0.7;
+  // float Perc_min = 0.6;
+  // float Perc_add = 0.1;
+
+  // adjust the param setting (third tune)
+  float deg_max = 180.0;
+  float deg_min = 45.0;
+  float deg_add = 45.0;
+
+  float cor_max = 1.25;
+  float cor_min = 0.75;
+  float cor_add = 0.25;
+
+  int itera_max = 12;
+  int itera_min = 6;
+  int itera_add = 2;
+
+  float ep_xy_max = 0.0001;
+  float ep_xy_min = 0.0000001;
+  float ep_xy_add = 10;
+
+  float ep_theta_max = 0.0001;
+  float ep_theta_min = 0.0000001;
+  float ep_theta_add = 10;
+
+  float dist_max = 1.0;
+  float dist_min = 0.5;
+  float dist_add = 0.5;
+
 
 
   //compute average error
@@ -2011,31 +2083,31 @@ bool SlamGMapping::SetPLICPParam()
       {
         plicp_config["max_iterations"] = itera_min;
 
-        // if (epsilon_xy >= ep_xy_min && epsilon_xy < ep_xy_max)
-        //   plicp_config["epsilon_xy"] = epsilon_xy * ep_xy_add;
-        // else
-        // {
-        //   plicp_config["epsilon_xy"] = ep_xy_min;
+        if (epsilon_xy >= ep_xy_min && epsilon_xy < ep_xy_max)
+          plicp_config["epsilon_xy"] = epsilon_xy * ep_xy_add;
+        else
+        {
+          plicp_config["epsilon_xy"] = ep_xy_min;
 
-        //   if (epsilon_theta >= ep_theta_min && epsilon_theta < ep_theta_max)
-        //     plicp_config["epsilon_theta"] = epsilon_theta * ep_theta_add;
-        //   else
-        //   {
-        //     plicp_config["epsilon_theta"] = ep_theta_min;
+          if (epsilon_theta >= ep_theta_min && epsilon_theta < ep_theta_max)
+            plicp_config["epsilon_theta"] = epsilon_theta * ep_theta_add;
+          else
+          {
+            plicp_config["epsilon_theta"] = ep_theta_min;
 
             if (max_correspondence_dist >= dist_min && max_correspondence_dist < dist_max)
               plicp_config["max_correspondence_dist"] = max_correspondence_dist + dist_add;
             else
             {
-              plicp_config["max_correspondence_dist"] = dist_min;
+              // plicp_config["max_correspondence_dist"] = dist_min;
 
-              if (outliers_maxPerc >= Perc_min && outliers_maxPerc < Perc_max)
-                plicp_config["outliers_maxPerc"] = outliers_maxPerc + Perc_add;
-              else
+              // if (outliers_maxPerc >= Perc_min && outliers_maxPerc < Perc_max)
+              //   plicp_config["outliers_maxPerc"] = outliers_maxPerc + Perc_add;
+              // else
                 return false;
             }
-          // }
-        // }
+          }
+        }
       }
     }
   }
@@ -2318,6 +2390,8 @@ void SlamGMapping::HypothesisTesting()
   VectorXd orb_avg = VectorXd::Zero(2);
   VectorXd plicp_avg = VectorXd::Zero(2);
 
+
+  // count the sum of every residual
   for (int i=0; i<sum_res; i++)
   {
     orb_avg(0) += ORB_res(i, 0);
@@ -2327,6 +2401,7 @@ void SlamGMapping::HypothesisTesting()
     plicp_avg(1) += PLICP_res(i, 1);
   }
 
+  // count the average of every residual
   orb_avg(0) = orb_avg(0)/sum_res;
   orb_avg(1) = orb_avg(1)/sum_res;
 
@@ -2336,6 +2411,8 @@ void SlamGMapping::HypothesisTesting()
   VectorXd orb_std = VectorXd::Zero(2);
   VectorXd plicp_std = VectorXd::Zero(2);
 
+
+  // count the sum of the squares of every residual minus average residual
   for (int i=0; i<sum_res; i++)
   {
     orb_std(0) += (ORB_res(i, 0) - orb_avg(0)) * (ORB_res(i, 0) - orb_avg(0));
@@ -2345,6 +2422,7 @@ void SlamGMapping::HypothesisTesting()
     plicp_std(1) += (PLICP_res(i, 1) - plicp_avg(1)) * (PLICP_res(i, 1) - plicp_avg(1));
   }
 
+  // compute the Standard Deviation (in this part, I don't use (n-1), I use (n) to instead)
   orb_std(0) = sqrt(orb_std(0)/sum_res);
   orb_std(1) = sqrt(orb_std(1)/sum_res);
 

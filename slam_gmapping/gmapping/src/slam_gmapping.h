@@ -108,7 +108,7 @@ class SlamGMapping
     LDP prev_ldp_scan_;
 
     // change method : 0 = gmapping, 1 = PLICP, 2 = PLICP+ORB
-    int mymethod = 2;
+    int mymethod = 1;
 
     // initialize PLICP parameters
     void InitICPParams();
@@ -133,7 +133,8 @@ class SlamGMapping
 
     // save last period pose by odom and ORB
     GMapping::OrientedPoint last_odom_pose;
-    GMapping::OrientedPoint last_ORB_pose;
+    // GMapping::OrientedPoint last_ORB_pose;
+
 
     // set two Unscented-Kalman-Filter of ORB and PLICP
     UKF orb_ukf;
@@ -141,14 +142,16 @@ class SlamGMapping
 
     // save each model's residual
     void SaveResidual();
+    //this parameter control used how many recent data to compute hypothesis
     int residual_sum;
 
     // container to save recent residual value (size: residual_sum * 2)
     MatrixXd ORB_res;
     MatrixXd PLICP_res;
 
-    // the counter and sum of the residual
+    // the current counter of both residual saving matrix
     int count_res;
+    // calculate the amount of the saving residual when the first time that matrix wasn't full
     int sum_res;
 
     // set pose calculate by Hypothesis Testing 

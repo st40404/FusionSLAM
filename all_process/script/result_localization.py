@@ -257,7 +257,13 @@ if __name__=='__main__':
     # orb = Result('/home/ron/work/src/all_process/data/ORB')
     # orb = Result('/home/ron/work/src/all_process/data/PLICP')
     # orb = Result('/home/ron/work/src/all_process/data/Second_tune/ORB')
-    orb = Result('/home/ron/work/src/all_process/data/Second_tune/PLICP')
+    # orb = Result('/home/ron/work/src/all_process/data/Second_tune/PLICP')
+
+
+    # orb = Result('/home/ron/work/src/all_process/data/UKF_First_tune/ORB/ORB')
+    # orb = Result('/home/ron/work/src/all_process/data/UKF_First_tune/ORB/ORB_odom')
+    # orb = Result('/home/ron/work/src/all_process/data/UKF_First_tune/PLICP/PLICP')
+    orb = Result('/home/ron/work/src/all_process/data/UKF_First_tune/PLICP/PLICP_odom')
     print ("\n\n\n")
     print ("====================================================")
     print ("===============    Best Result    ==================")
@@ -271,4 +277,3 @@ if __name__=='__main__':
     print ("\n==============     best_MSE_s      =================\n")
     print (orb.best_MSE_s)
 
-    # plicp = result('/home/ron/work/src/all_process/data/OLD_2/PLICP')

@@ -14,19 +14,19 @@
     />
 
     <!-- open node: orb_slam -->
-    <node pkg="orbslam2_ros"
+    <!-- <node pkg="orbslam2_ros"
         name="RGBD"
         type="RGBD"
         args= "$(arg path_to_vocabulary) $(arg path_to_settings)" 
         respawn="true" 
-        />
+        /> -->
 
     <!-- -d : delay second before start, -r : rate of player -->
     <node pkg="rosbag"
           type="play" 
           name="player" 
           output="screen" 
-          args="--clock -r 1 -d 10 $(find savebag)/bag/short_test.bag" 
+          args="--clock -r 1 -d 3 $(find savebag)/bag/short_test.bag" 
           respawn="true"
           respawn_delay="3"
           />
@@ -53,7 +53,7 @@
         <arg name="model" value="$(arg model)" />
     </include>
 
-    <node pkg="robot_state_publisher" type="robot_state_publisher" name="robot_state_publisher" respawn="true" respawn_delay="5">
+    <node pkg="robot_state_publisher" type="robot_state_publisher" name="robot_state_publisher" respawn="true" >
         <param name="publish_frequency" type="double" value="50.0" />
         <param name="tf_prefix" value="$(arg multi_robot_name)"/>
     </node>
@@ -61,7 +61,7 @@
 
 
     <!-- Gmapping -->
-    <node pkg="gmapping" type="slam_gmapping" name="turtlebot3_slam_gmapping" output="screen" respawn="true" respawn_delay="5">
+    <node pkg="gmapping" type="slam_gmapping" name="turtlebot3_slam_gmapping" output="screen" respawn="true" >
         <param name="base_frame" value="$(arg set_base_frame)"/>
         <param name="odom_frame" value="$(arg set_odom_frame)"/>
         <param name="map_frame"  value="$(arg set_map_frame)"/>
@@ -69,7 +69,7 @@
     </node>
 
     <!-- show the trajectory path of base_scan in map frame -->
-    <node pkg="hector_trajectory_server" type="hector_trajectory_server" name="laser_trajectory_server" output="screen" respawn="true" respawn_delay="5">
+    <node pkg="hector_trajectory_server" type="hector_trajectory_server" name="laser_trajectory_server" output="screen" respawn="true" >
         <param name="target_frame_name" type="string" value="/map" />
         <param name="source_frame_name" type="string" value="/base_scan" />
         <param name="trajectory_update_rate" type="double" value="4" />
@@ -77,10 +77,10 @@
     </node>
     
     <!-- rviz -->
-    <!-- <group if="$(arg open_rviz)"> 
-        <node pkg="rviz" type="rviz" name="rviz" respawn="true" respawn_delay="5"
+    <group if="$(arg open_rviz)"> 
+        <node pkg="rviz" type="rviz" name="rviz" respawn="true" 
             args="-d $(find turtlebot3_slam)/rviz/turtlebot3_$(arg slam_methods).rviz"/>
-    </group> -->
+    </group>
 
 
     <node pkg="all_process" type="save_log.py" name="save_log" output="screen" required="true"/>
