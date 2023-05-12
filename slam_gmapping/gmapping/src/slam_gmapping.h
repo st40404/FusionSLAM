@@ -131,9 +131,10 @@ class SlamGMapping
     ros::ServiceServer Trigger_serv;
 
 
-    // save last period pose by odom and ORB
-    GMapping::OrientedPoint last_odom_pose;
+    // save last period pose of plicp
+    // GMapping::OrientedPoint last_odom_pose;
     // GMapping::OrientedPoint last_ORB_pose;
+    tf::Transform plicp_pose;
 
 
     // set two Unscented-Kalman-Filter of ORB and PLICP

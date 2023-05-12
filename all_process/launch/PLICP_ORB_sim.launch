@@ -14,19 +14,21 @@
     />
 
     <!-- open node: orb_slam -->
-    <!-- <node pkg="orbslam2_ros"
+    <node pkg="orbslam2_ros"
         name="RGBD"
         type="RGBD"
         args= "$(arg path_to_vocabulary) $(arg path_to_settings)" 
         respawn="true" 
-        /> -->
+        />
 
+        
     <!-- -d : delay second before start, -r : rate of player -->
+    <!-- delay 10 second -->
     <node pkg="rosbag"
           type="play" 
           name="player" 
           output="screen" 
-          args="--clock -r 1 -d 3 $(find savebag)/bag/short_test.bag" 
+          args="--clock -r 1 -d 10 $(find savebag)/bag/short_test.bag" 
           respawn="true"
           respawn_delay="3"
           />
@@ -61,6 +63,8 @@
 
 
     <!-- Gmapping -->
+    <!-- respawn_delay 5 second -->
+
     <node pkg="gmapping" type="slam_gmapping" name="turtlebot3_slam_gmapping" output="screen" respawn="true" >
         <param name="base_frame" value="$(arg set_base_frame)"/>
         <param name="odom_frame" value="$(arg set_odom_frame)"/>
@@ -69,6 +73,7 @@
     </node>
 
     <!-- show the trajectory path of base_scan in map frame -->
+    <!-- respawn_delay 5 second -->
     <node pkg="hector_trajectory_server" type="hector_trajectory_server" name="laser_trajectory_server" output="screen" respawn="true" >
         <param name="target_frame_name" type="string" value="/map" />
         <param name="source_frame_name" type="string" value="/base_scan" />

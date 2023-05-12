@@ -577,8 +577,14 @@ SlamGMapping::initMapper(const sensor_msgs::LaserScan& scan)
     ROS_WARN("Unable to determine inital pose of laser! Starting point will be set to zero.");
     initialPose = GMapping::OrientedPoint(0.0, 0.0, 0.0);
   }
-  // need to give last_odom_pose a initialpose by laser pose 
-  last_odom_pose = initialPose;
+
+  // need to give plicp_pose a initialpose by laser pose 
+  plicp_pose.setOrigin( tf::Vector3(initialPose.x, initialPose.y, 0.0) );
+  tf::Quaternion q;
+  q.setRPY(0.0, 0.0, initialPose.theta);
+  plicp_pose.setRotation(q);
+
+
   gsp_->setMatchingParameters(maxUrange_, maxRange_, sigma_,
                               kernelSize_, lstep_, astep_, iterations_,
                               lsigma_, ogain_, lskip_);
@@ -734,9 +740,18 @@ SlamGMapping::ScanCallback(const sensor_msgs::LaserScan::ConstPtr& scan, GMappin
   // compute PL-ICP compute the transform
   ScanMatchWithPLICP(curr_ldp_scan, scan->header.stamp);
 
-  GMapping::OrientedPoint icp_pose( last_odom_pose.x + output_.x[0],
-                                    last_odom_pose.y + output_.x[1],
-                                    last_odom_pose.theta + output_.x[2]);
+  // compute PLICP current position, and save in plicp_pose
+  tf::Transform plicp_trans;
+  plicp_trans.setOrigin( tf::Vector3(-1*output_.x[0], -1*output_.x[1], 0.0) );
+  tf::Quaternion q;
+  q.setRPY(0.0, 0.0, output_.x[2]);
+  plicp_trans.setRotation(q);
+  plicp_pose = plicp_pose * plicp_trans;
+
+
+  GMapping::OrientedPoint icp_pose( plicp_pose.getOrigin().getX(),
+                                    plicp_pose.getOrigin().getY(),
+                                    tf::getYaw(plicp_pose.getRotation()));
 
   // save pose and scan reading
   reading.setPose(icp_pose);
@@ -787,7 +802,6 @@ void SlamGMapping::laserCallback(const sensor_msgs::LaserScan::ConstPtr& scan, c
     // MAYBE : odom_pose is computed by motor motion
     GMapping::OrientedPoint odom_pose;
 
-    GMapping::OrientedPoint lcp_current_pose;
 
     if(addScan(*scan, odom_pose))
     {
@@ -801,8 +815,8 @@ void SlamGMapping::laserCallback(const sensor_msgs::LaserScan::ConstPtr& scan, c
 
 
       std::cerr << "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa" << std::endl;
-      std::cerr << mpose.x << "  " << mpose.y << "  " << mpose.theta << std::endl;
-      std::cerr << odom_pose.x << "  " << odom_pose.y << "  " << odom_pose.theta << std::endl;
+      std::cerr << mpose.x << "  " << mpose.y << "  " << mpose.theta*180/M_PI << std::endl;
+      std::cerr << odom_pose.x << "  " << odom_pose.y << "  " << odom_pose.theta*180/M_PI << std::endl;
       // std::cerr << odom->pose.pose.position.x << "  " << odom->pose.pose.position.y << " " << odom->pose.pose.position.z << std::endl;
 
 
@@ -864,8 +878,6 @@ void SlamGMapping::laserCallback(const sensor_msgs::LaserScan::ConstPtr& scan, c
     // MAYBE : odom_pose is computed by motor motion
     GMapping::OrientedPoint odom_pose;
 
-    GMapping::OrientedPoint lcp_current_pose;
-
     if (ScanCallback(scan, odom_pose))
     {
       // std::chrono::steady_clock::time_point end_time = std::chrono::steady_clock::now();
@@ -878,42 +890,24 @@ void SlamGMapping::laserCallback(const sensor_msgs::LaserScan::ConstPtr& scan, c
       // std::cerr << "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa" << std::endl;
       // std::cerr << odom->pose.pose.position.x << " " << odom->pose.pose.position.y << " " << -2 * acos(odom->pose.pose.orientation.w) / 3.14159 * 180.0 << std::endl;
 
-      // std::cerr << odom_pose.x << "  " << odom_pose.y << "  " << odom_pose.theta << std::endl;
-      // std::cerr <<  last_odom_pose.x + output_.x[0] << "  " <<  last_odom_pose.y + output_.x[1] << "  " <<  last_odom_pose.theta + output_.x[2] << std::endl;
-      // std::cerr << output_.x[0] << "  " << output_.x[1] << "  " << output_.x[2]*180/M_PI << std::endl;
-      // std::cerr << "ddddddddddddddddddddddddddddd" << std::endl;
-
       // std::cerr << "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa" << std::endl;
-      // std::cerr << odom->pose.pose.position.x << " " << odom->pose.pose.position.y << " " << -2 * acos(odom->pose.pose.orientation.w) / 3.14159 * 180.0 << std::endl;
-      // std::cerr << lcp_current_pose.x << " " << lcp_current_pose.y << " " << lcp_current_pose.theta << std::endl;
-      // std::cerr << odom_pose.x << " " << odom_pose.y << " " << odom_pose.theta << std::endl;
+      // std::cerr << odom_pose.x << "  " << odom_pose.y << "  " << odom_pose.theta*180/M_PI << std::endl;
+      // std::cerr << output_.x[0] << "  " << output_.x[1] << "  " << output_.x[2]*180/M_PI << std::endl;
+      // std::cerr <<  plicp_pose.getOrigin().getX() << " " << plicp_pose.getOrigin().getY() << " " << plicp_pose.getOrigin().getZ() << " " << tf::getYaw(plicp_pose.getRotation())*180/M_PI <<std::endl;
 
 
-      // lcp_current_pose.x = last_odom_pose.x + output_.x[0];
-      // lcp_current_pose.y = last_odom_pose.y + output_.x[1];
-      // lcp_current_pose.theta = last_odom_pose.theta + output_.x[2];
-      // last_odom_pose = odom_pose;
-
-      last_odom_pose.x += output_.x[0];
-      last_odom_pose.y += output_.x[1];
-      last_odom_pose.theta += output_.x[2];
-      // last_odom_pose = odom_pose;
-
-      // std::cerr << "aaaaaaaaaaaaaaaaaaaaaaaaaaaa" << std::endl;
-      // std::cerr << odom_pose.x << "  " << odom_pose.y << " " << odom_pose.theta << std::endl;
 
 
-      Precision_PLICP(odom, last_odom_pose.x, last_odom_pose.y);
+      Precision_PLICP(odom, plicp_pose.getOrigin().getX(), plicp_pose.getOrigin().getY());
 
-
-      ROS_DEBUG("new best pose: %.3f %.3f %.3f", lcp_current_pose.x, lcp_current_pose.y, lcp_current_pose.theta);
+      ROS_DEBUG("new best pose: %.3f %.3f %.3f", plicp_pose.getOrigin().getX(), plicp_pose.getOrigin().getY(), tf::getYaw(plicp_pose.getRotation()));
       ROS_DEBUG("odom pose: %.3f %.3f %.3f", odom_pose.x, odom_pose.y, odom_pose.theta);
       ROS_DEBUG("correction: %.3f %.3f %.3f", output_.x[0], output_.x[1], output_.x[2]);
 
 
       // laser_to_map : lidar pose in map frame
       // odom_to_laser : lidar pose in odom frame
-      tf::Transform laser_to_map = tf::Transform(tf::createQuaternionFromRPY(0, 0, last_odom_pose.theta), tf::Vector3(last_odom_pose.x, last_odom_pose.y, 0.0)).inverse();
+      tf::Transform laser_to_map = tf::Transform(tf::createQuaternionFromRPY(0, 0, tf::getYaw(plicp_pose.getRotation())), tf::Vector3(plicp_pose.getOrigin().getX(), plicp_pose.getOrigin().getY(), 0.0)).inverse();
       tf::Transform odom_to_laser = tf::Transform(tf::createQuaternionFromRPY(0, 0, odom_pose.theta), tf::Vector3(odom_pose.x, odom_pose.y, 0.0));
 
       // map_to_odom_ : compute relationship between odom frame and map frame
@@ -965,16 +959,6 @@ void SlamGMapping::laserCallback(const sensor_msgs::LaserScan::ConstPtr& scan, c
         CreateCache(scan);
         LaserScanToLDP(scan, prev_ldp_scan_);
         last_icp_time_ = scan->header.stamp;
-        // last_ORB_pose.x = srv.response.x;
-        // last_ORB_pose.y = srv.response.y;
-        // last_ORB_pose.theta = srv.response.z;
-        
-        ////////////////  Initialize PLICP position with ORBSLAM2's initialize pose ///////////
-        // last_odom_pose.x     = srv.response.x;
-        // last_odom_pose.y     = srv.response.y;
-        // last_odom_pose.theta = srv.response.z;
-
-
 
         // UKF params
         MeasurementPackage meas_init_pose;
@@ -1000,9 +984,6 @@ void SlamGMapping::laserCallback(const sensor_msgs::LaserScan::ConstPtr& scan, c
       // MAYBE : odom_pose is computed by motor motion
       GMapping::OrientedPoint odom_pose;
 
-      GMapping::OrientedPoint lcp_current_pose;
-      GMapping::OrientedPoint ORB_current_change;
-
       // to save the best variety of Agv 
       GMapping::OrientedPoint best_pose;
 
@@ -1018,47 +999,21 @@ void SlamGMapping::laserCallback(const sensor_msgs::LaserScan::ConstPtr& scan, c
         // std::chrono::steady_clock::time_point start_time = std::chrono::steady_clock::now();
         ROS_DEBUG("scan processed");
  
-        // std::cerr << "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa" << std::endl;
-        // std::cerr << odom_pose.x << "  " << odom_pose.y << "  " << odom_pose.theta << std::endl;
-        // std::cerr <<  last_odom_pose.x + output_.x[0] << "  " <<  last_odom_pose.y + output_.x[1] << "  " <<  last_odom_pose.theta + output_.x[2] << std::endl;
-        // std::cerr << output_.x[0] << "  " << output_.x[1] << "  " << output_.x[2] << std::endl;
-        // std::cerr << "ddddddddddddddddddddddddddddd" << std::endl;
-
-        /////////     ORB and PLICP　current　change by GMapping::OrientedPoint type   /////////
-        lcp_current_pose.x = last_odom_pose.x + output_.x[0];
-        lcp_current_pose.y = last_odom_pose.y + output_.x[1];
-        lcp_current_pose.theta = last_odom_pose.theta + output_.x[2];
-        
-        // ORB_current_change.x = srv.response.x - last_ORB_pose.x;
-        // ORB_current_change.y = srv.response.y - last_ORB_pose.y;
-        // ORB_current_change.theta = srv.response.z - last_ORB_pose.theta;
-
-        // last_ORB_pose.x = srv.response.x;
-        // last_ORB_pose.y = srv.response.y;
-        // last_ORB_pose.theta = srv.response.z;
 
         // Precision_ORB(odom, srv.response.x, srv.response.y);
-        // Precision_PLICP(odom, lcp_current_pose.x,  lcp_current_pose.y);
+        Precision_PLICP(odom, plicp_pose.getOrigin().getX(), plicp_pose.getOrigin().getY());
 
         // put ORB pose variety and PLICP pose variety into Unscented Kalman Filter
         // ORB pose part
         meas_ORB_pose.raw_measurements_ = VectorXd(2);
         meas_ORB_pose.raw_measurements_ << srv.response.x, srv.response.y;
-
-        // meas_ORB_pose.raw_measurements_ = VectorXd(3);
-        // meas_ORB_pose.raw_measurements_ << srv.response.x, srv.response.y, srv.response.z;
-
         meas_ORB_pose.timestamp_ = srv.request.sec * 1000000000 + srv.request.nsec;
         meas_ORB_pose.sensor_type_ = MeasurementPackage::LASER;
 
 
         // PLICP pose part
         meas_PLICP_pose.raw_measurements_ = VectorXd(2);
-        meas_PLICP_pose.raw_measurements_ << lcp_current_pose.x, lcp_current_pose.y;
-
-        // meas_PLICP_pose.raw_measurements_ = VectorXd(3);
-        // meas_PLICP_pose.raw_measurements_ << lcp_current_pose.x, lcp_current_pose.y, lcp_current_pose.theta;
-
+        meas_PLICP_pose.raw_measurements_ << plicp_pose.getOrigin().getX(), plicp_pose.getOrigin().getY();
         meas_PLICP_pose.timestamp_ = srv.request.sec * 1000000000 + srv.request.nsec;
         meas_PLICP_pose.sensor_type_ = MeasurementPackage::LASER;
 
@@ -1070,7 +1025,7 @@ void SlamGMapping::laserCallback(const sensor_msgs::LaserScan::ConstPtr& scan, c
         flag_plicp = plicp_ukf.ProcessMeasurement(meas_PLICP_pose);
 
         Precision_UKF_ORB(odom, srv.response.x, srv.response.y, orb_ukf.x_[0], orb_ukf.x_[1]);
-        Precision_UKF_PLICP(odom, lcp_current_pose.x,  lcp_current_pose.y, plicp_ukf.x_[0], plicp_ukf.x_[1]);
+        Precision_UKF_PLICP(odom, plicp_pose.getOrigin().getX(), plicp_pose.getOrigin().getY(), plicp_ukf.x_[0], plicp_ukf.x_[1]);
 
         if (flag_orb == true && flag_plicp == true)
         {
@@ -1083,23 +1038,21 @@ void SlamGMapping::laserCallback(const sensor_msgs::LaserScan::ConstPtr& scan, c
 
         }
         
-        std::cerr << "aaaaaaaaaaaaaaaaaaaaaaaaaaaa" << std::endl;
+        // std::cerr << "aaaaaaaaaaaaaaaaaaaaaaaaaaaa" << std::endl;
         // std::cerr << odom->pose.pose.position.x << "  " << odom->pose.pose.position.y << " " << odom->pose.pose.position.z << std::endl;
-        // std::cerr << lcp_current_pose.x << "  " << lcp_current_pose.y << " " << lcp_current_pose.theta << std::endl;
         // std::cerr << plicp_ukf.x_[0] << "  " << plicp_ukf.x_[1] << std::endl;
         // std::cerr << srv.response.x << "  " << srv.response.y << " " << srv.response.z << std::endl;
         // std::cerr << orb_ukf.x_[0] << "  " << orb_ukf.x_[1] << std::endl;
         
-        std::cerr << odom_pose.x << "  " << odom_pose.y << " " << odom_pose.theta << std::endl;
+        // std::cerr << odom_pose.x << "  " << odom_pose.y << " " << odom_pose.theta << std::endl;
 
 
 
-        // best_pose.x = last_odom_pose.x + ORB_weight(0)*orb_ukf.x_[0] + PLICP_weight(0)*plicp_ukf.x_[0];
-        // best_pose.y = last_odom_pose.y + ORB_weight(1)*orb_ukf.x_[1] + PLICP_weight(1)*plicp_ukf.x_[1];
+        // best_pose.x = plicp_pose.getOrigin().getX() + ORB_weight(0)*orb_ukf.x_[0] + PLICP_weight(0)*plicp_ukf.x_[0];
+        // best_pose.y = plicp_pose.getOrigin().getY() + ORB_weight(1)*orb_ukf.x_[1] + PLICP_weight(1)*plicp_ukf.x_[1];
 
-
-        best_pose.x = 0.5 * lcp_current_pose.x + 0.5 * srv.response.x;
-        best_pose.y = 0.5 * lcp_current_pose.y + 0.5 * srv.response.y;
+        best_pose.x = 0.5 * plicp_pose.getOrigin().getX() + 0.5 * srv.response.x;
+        best_pose.y = 0.5 *  plicp_pose.getOrigin().getY() + 0.5 * srv.response.y;
 
         // best_pose.x = ORB_weight(0)*orb_ukf.x_[0] + PLICP_weight(0)*plicp_ukf.x_[0];
         // best_pose.y = ORB_weight(1)*orb_ukf.x_[1] + PLICP_weight(1)*plicp_ukf.x_[1];
@@ -1107,30 +1060,14 @@ void SlamGMapping::laserCallback(const sensor_msgs::LaserScan::ConstPtr& scan, c
 
 
         // best_pose.theta = last_odom_pose.theta + ORB_weight(2)*orb_ukf.x_[2] + PLICP_weight(2)*plicp_ukf.x_[2];
-      
-        // best_pose.x = last_odom_pose.x + ORB_weight(0)*ORB_current_change.x + PLICP_weight(0)*output_.x[0];
-        // best_pose.y = last_odom_pose.y + ORB_weight(1)*ORB_current_change.y + PLICP_weight(1)*output_.x[1];
-        // best_pose.theta = last_odom_pose.theta + ORB_weight(2)*ORB_current_change.theta + PLICP_weight(2)*output_.x[2];
 
-        ////////////////  each PLICP varience add with last period's odom_pose ///////////
-        // last_odom_pose = odom_pose;
-
-        ////////////////  each PLICP varience add it's self ///////////
-        last_odom_pose.x     = lcp_current_pose.x;
-        last_odom_pose.y     = lcp_current_pose.y;
-        last_odom_pose.theta = lcp_current_pose.theta;
-
-
-        ROS_DEBUG("new best pose: %.3f %.3f %.3f", best_pose.x, best_pose.y, lcp_current_pose.theta);
+        ROS_DEBUG("new best pose: %.3f %.3f %.3f", best_pose.x, best_pose.y, odom_pose.theta);
         ROS_DEBUG("odom pose: %.3f %.3f %.3f", odom_pose.x, odom_pose.y, odom_pose.theta);
         ROS_DEBUG("correction: %.3f %.3f %.3f", output_.x[0], output_.x[1], output_.x[2]);
 
         // laser_to_map : lidar pose in map frame
         // odom_to_laser : lidar pose in odom frame
-        // tf::Transform laser_to_map = tf::Transform(tf::createQuaternionFromRPY(0, 0, srv.response.z+M_PI), tf::Vector3(srv.response.x, srv.response.y, 0.0)).inverse();
-        tf::Transform laser_to_map = tf::Transform(tf::createQuaternionFromRPY(0, 0, lcp_current_pose.theta), tf::Vector3(lcp_current_pose.x, lcp_current_pose.y, 0.0)).inverse();
-
-        // tf::Transform laser_to_map = tf::Transform(tf::createQuaternionFromRPY(0, 0, best_pose.theta), tf::Vector3(best_pose.x, best_pose.y, 0.0)).inverse();
+        tf::Transform laser_to_map = tf::Transform(tf::createQuaternionFromRPY(0, 0, best_pose.theta), tf::Vector3(best_pose.x, best_pose.y, 0.0)).inverse();
         tf::Transform odom_to_laser = tf::Transform(tf::createQuaternionFromRPY(0, 0, odom_pose.theta), tf::Vector3(odom_pose.x, odom_pose.y, 0.0));
 
         // map_to_odom_ : compute relationship between odom frame and map frame
@@ -1380,8 +1317,8 @@ void SlamGMapping::InitICPParams()
 
     // Maximum angular displacement between scans
     if (!private_node_.getParam("max_angular_correction_deg", input_.max_angular_correction_deg))
-        input_.max_angular_correction_deg = 45.0;
-        // input_.max_angular_correction_deg = 360.0;
+        // input_.max_angular_correction_deg = 45.0;
+        input_.max_angular_correction_deg = 360.0;
 
     // Maximum translation between scans (m)
     // according to lidar, if lidar have more accuracy, the value of max_linear_correction need to be lower
@@ -2026,7 +1963,7 @@ bool SlamGMapping::SetPLICPParam()
   float ep_theta_min = 0.0000001;
   float ep_theta_add = 10;
 
-  float dist_max = 1.0;
+  float dist_max = 1.5;
   float dist_min = 0.5;
   float dist_add = 0.5;
 
