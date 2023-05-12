@@ -14,12 +14,12 @@
     />
 
     <!-- open node: orb_slam -->
-    <node pkg="orbslam2_ros"
+    <!-- <node pkg="orbslam2_ros"
         name="RGBD"
         type="RGBD"
         args= "$(arg path_to_vocabulary) $(arg path_to_settings)" 
         respawn="true" 
-        />
+        /> -->
 
         
     <!-- -d : delay second before start, -r : rate of player -->
@@ -28,7 +28,7 @@
           type="play" 
           name="player" 
           output="screen" 
-          args="--clock -r 1 -d 10 $(find savebag)/bag/short_test.bag" 
+          args="--clock -r 1 -d 3 $(find savebag)/bag/short_test.bag" 
           respawn="true"
           respawn_delay="3"
           />
