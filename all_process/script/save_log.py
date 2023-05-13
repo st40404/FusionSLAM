@@ -24,7 +24,7 @@ if __name__=='__main__':
         if "node is" in result:
             trigger = trigger_kill_node()
             if (trigger == True):
-                # os.system("rosnode kill RGBD ")
+                os.system("rosnode kill RGBD ")
                 os.system("rosnode kill player ")
                 os.system("rosnode kill laser_trajectory_server ")
                 os.system("rosnode kill robot_state_publisher ")

@@ -1001,7 +1001,8 @@ void SlamGMapping::laserCallback(const sensor_msgs::LaserScan::ConstPtr& scan, c
  
 
         // Precision_ORB(odom, srv.response.x, srv.response.y);
-        Precision_PLICP(odom, plicp_pose.getOrigin().getX(), plicp_pose.getOrigin().getY());
+        // Precision_PLICP(odom, plicp_pose.getOrigin().getX(), plicp_pose.getOrigin().getY());
+
 
         // put ORB pose variety and PLICP pose variety into Unscented Kalman Filter
         // ORB pose part
@@ -1038,11 +1039,12 @@ void SlamGMapping::laserCallback(const sensor_msgs::LaserScan::ConstPtr& scan, c
 
         }
         
-        // std::cerr << "aaaaaaaaaaaaaaaaaaaaaaaaaaaa" << std::endl;
-        // std::cerr << odom->pose.pose.position.x << "  " << odom->pose.pose.position.y << " " << odom->pose.pose.position.z << std::endl;
-        // std::cerr << plicp_ukf.x_[0] << "  " << plicp_ukf.x_[1] << std::endl;
-        // std::cerr << srv.response.x << "  " << srv.response.y << " " << srv.response.z << std::endl;
-        // std::cerr << orb_ukf.x_[0] << "  " << orb_ukf.x_[1] << std::endl;
+        std::cerr << "aaaaaaaaaaaaaaaaaaaaaaaaaaaa" << std::endl;
+        std::cerr << odom->pose.pose.position.x << "  " << odom->pose.pose.position.y << " " << odom->pose.pose.position.z << std::endl;
+        std::cerr << plicp_pose.getOrigin().getX() << "  " << plicp_pose.getOrigin().getY() << std::endl;
+        std::cerr << plicp_ukf.x_[0] << "  " << plicp_ukf.x_[1] << std::endl;
+        std::cerr << srv.response.x << "  " << srv.response.y << " " << srv.response.z << std::endl;
+        std::cerr << orb_ukf.x_[0] << "  " << orb_ukf.x_[1] << std::endl;
         
         // std::cerr << odom_pose.x << "  " << odom_pose.y << " " << odom_pose.theta << std::endl;
 
@@ -1732,11 +1734,11 @@ bool SlamGMapping::KillTrigger(  all_process::Trigger::Request  &req,
 
   // tuning ORB and PLICP param
   // flag_orb = SetORBParam();
-  flag_plicp = SetPLICPParam();
+  // flag_plicp = SetPLICPParam();
 
-  // tuning ORB and PLICP param
-  // flag_orb = SetUKFORBParam();
-  // flag_plicp = SetUKFPLICPParam();
+  // tuning UKF param of ORB and PLICP
+  flag_orb = SetUKFORBParam();
+  flag_plicp = SetUKFPLICPParam();
 
   if (flag_orb == true || flag_plicp == true)
 

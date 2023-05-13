@@ -52,6 +52,36 @@
         <pose frame="">4.73156 -8.6651 0 0 0 0</pose>
 	</model>
 
+    <!-- add shelf to the middle place -->
+    <model name="aws_robomaker_warehouse_ShelfE_01_004">
+        <include>
+            <uri>model://aws_robomaker_warehouse_ShelfE_01</uri>
+        </include>
+        <pose frame="">-1.016107 -1.623325 0 0 0 0</pose>
+	</model>
+
+    <model name="aws_robomaker_warehouse_ShelfE_01_005">
+        <include>
+            <uri>model://aws_robomaker_warehouse_ShelfE_01</uri>
+        </include>
+        <pose frame="">-1.016107 -0.248351 0 0 0 0</pose>
+	</model>
+
+    <model name="aws_robomaker_warehouse_ShelfE_01_006">
+        <include>
+            <uri>model://aws_robomaker_warehouse_ShelfE_01</uri>
+        </include>
+        <pose frame="">-1.016107 1.602164 0 0 0 0</pose>
+	</model>
+
+    <model name="aws_robomaker_warehouse_ShelfE_01_007">
+        <include>
+            <uri>model://aws_robomaker_warehouse_ShelfE_01</uri>
+        </include>
+        <pose frame="">-1.016107 3.004394 0 0 0 0</pose>
+	</model>
+
+
         <model name="aws_robomaker_warehouse_ShelfD_01_001">
         <include>
             <uri>model://aws_robomaker_warehouse_ShelfD_01</uri>
@@ -117,12 +147,12 @@
         <pose frame="">0.433449 9.631706 0 0 0 -1.563161</pose>
 	</model>
 
-        <model name="aws_robomaker_warehouse_Bucket_01_021">
+        <!-- <model name="aws_robomaker_warehouse_Bucket_01_021">
         <include>
             <uri>model://aws_robomaker_warehouse_Bucket_01</uri>
         </include>
         <pose frame="">-1.8321 -6.3752 0 0 0 -1.563161</pose>
-	</model>
+	</model> -->
 
         <model name="aws_robomaker_warehouse_Bucket_01_022">
         <include>
@@ -130,6 +160,36 @@
         </include>
         <pose frame="">0.433449 8.59 0 0 0 -1.563161</pose>
 	</model>
+
+    <!-- add bucket -->
+    <model name="aws_robomaker_warehouse_Bucket_01_023">
+        <include>
+            <uri>model://aws_robomaker_warehouse_Bucket_01</uri>
+        </include>
+        <pose frame="">-1.854810 -3.400889 0 0 0 -1.677272</pose>
+	</model>
+
+    <model name="aws_robomaker_warehouse_Bucket_01_024">
+        <include>
+            <uri>model://aws_robomaker_warehouse_Bucket_01</uri>
+        </include>
+        <pose frame="">-0.392270 -3.218371 0 0 0 -1.547140</pose>
+	</model>
+
+    <model name="aws_robomaker_warehouse_Bucket_01_025">
+        <include>
+            <uri>model://aws_robomaker_warehouse_Bucket_01</uri>
+        </include>
+        <pose frame="">-0.357024 -4.708054 0 0 0 -2.084912</pose>
+	</model>
+
+    <model name="aws_robomaker_warehouse_Bucket_01_026">
+        <include>
+            <uri>model://aws_robomaker_warehouse_Bucket_01</uri>
+        </include>
+        <pose frame="">-1.606076 -4.702724 0 0 0 0.027535</pose>
+	</model>
+
 
   <model name='aws_robomaker_warehouse_ClutteringA_01_016'>
         <include>
@@ -145,13 +205,57 @@
         <pose frame=''>3.408638 8.616844 -0.017477 0 0 0</pose>
 	</model>
 
+      <!-- <model name='aws_robomaker_warehouse_ClutteringA_01_018'>
+        <include>
+            <uri>model://aws_robomaker_warehouse_ClutteringA_01</uri>
+        </include>
+        <pose frame=''>-1.491287 5.222435 -0.017477 0 0 -1.583185</pose>
+	</model> -->
+
+    <!-- add other cletteringA -->
       <model name='aws_robomaker_warehouse_ClutteringA_01_018'>
         <include>
             <uri>model://aws_robomaker_warehouse_ClutteringA_01</uri>
         </include>
-        <pose frame=''>-0.989186 2.223073 -0.017477 0 0 -1.583185</pose>
-        <!-- <pose frame=''>-1.491287 5.222435 -0.017477 0 0 -1.583185</pose> -->
+        <pose frame=''>-5.749237 6.657122 -0.017477 0 0 -1.583185</pose>
 	</model>
+
+      <model name='aws_robomaker_warehouse_ClutteringA_01_019'>
+        <include>
+            <uri>model://aws_robomaker_warehouse_ClutteringA_01</uri>
+        </include>
+        <pose frame=''>-5.837866 4.441698 -0.017477 0 0 -1.570533</pose>
+	</model>
+
+      <model name='aws_robomaker_warehouse_ClutteringA_01_020'>
+        <include>
+            <uri>model://aws_robomaker_warehouse_ClutteringA_01</uri>
+        </include>
+        <pose frame=''>-5.805258 2.135413 -0.017477 0 0 0</pose>
+	</model>
+
+      <model name='aws_robomaker_warehouse_ClutteringA_01_021'>
+        <include>
+            <uri>model://aws_robomaker_warehouse_ClutteringA_01</uri>
+        </include>
+        <pose frame=''>-5.763078 0.098246 -0.017477 0 0 3.14159</pose>
+	</model>
+
+    <model name='aws_robomaker_warehouse_ClutteringA_01_022'>
+    <include>
+        <uri>model://aws_robomaker_warehouse_ClutteringA_01</uri>
+        </include>
+        <pose frame=''>-5.418294 -8.543600 -0.017477 0 0 1.570795</pose>
+	</model>
+
+
+
+
+
+
+
+
+
 
 
      <model name="aws_robomaker_warehouse_ClutteringC_01_027">
@@ -182,13 +286,12 @@
         <pose frame="">3.236 6.137154 0 0 0 3.150000</pose>
 	</model>
 
-     <model name="aws_robomaker_warehouse_ClutteringC_01_031">
+     <!-- <model name="aws_robomaker_warehouse_ClutteringC_01_031">
         <include>
             <uri>model://aws_robomaker_warehouse_ClutteringC_01</uri>
         </include>
-        <pose frame="">-0.850055 -0.926069 -0.776991 0 0 -3.133191</pose>
-        <!-- <pose frame="">-1.573677 2.301994 -0.015663 0 0 -3.133191</pose> -->
-	</model>
+        <pose frame="">-1.573677 2.301994 -0.015663 0 0 -3.133191</pose>
+	</model> -->
 
      <model name="aws_robomaker_warehouse_ClutteringC_01_032">
         <include>
@@ -201,7 +304,8 @@
         <include>
             <uri>model://aws_robomaker_warehouse_ClutteringD_01</uri>
         </include>
-        <pose frame=''>-1.634682 -7.811813 -0.319559 0 0 0</pose>
+        <!-- <pose frame=''>-1.634682 -7.811813 -0.319559 0 0 0</pose> -->
+        <pose frame=''>1.106120 -9.694797 0 0 0 1.586076</pose>
 	</model>
                                                  
       <model name='aws_robomaker_warehouse_TrashCanC_01_002'>
@@ -212,21 +316,53 @@
 	</model>
 
 
-      <model name='aws_robomaker_warehouse_PalletJackB_01_001'>
+      <!-- <model name='aws_robomaker_warehouse_PalletJackB_01_001'>
         <include>
             <uri>model://aws_robomaker_warehouse_PalletJackB_01</uri>
         </include>
-        <pose frame=''>-2.915065 5.225211 0.023266 0 0 1.577138</pose>
-        <!-- <pose frame=''>-0.276098 -9.481944 0.023266 0 0 0</pose> -->
-	</model>
+        <pose frame=''>-0.276098 -9.481944 0.023266 0 0 0</pose>
+	</model> -->
 
+    <!-- add palletJack (under shelf)-->
       <model name='aws_robomaker_warehouse_PalletJackB_01_002'>
         <include>
             <uri>model://aws_robomaker_warehouse_PalletJackB_01</uri>
         </include>
-        <pose frame=''>0.866249 -7.037471 0.023266 0 0 1.577138</pose>
+        <pose frame=''>-5.677883 -4.233925 0.023266 0 0 2.908770</pose>
 	</model>
-    	
+
+      <model name='aws_robomaker_warehouse_PalletJackB_01_003'>
+        <include>
+            <uri>model://aws_robomaker_warehouse_PalletJackB_01</uri>
+        </include>
+        <pose frame=''>-6.025976 -3.058678 0.023266 0 0 2.869150</pose>
+	</model>
+
+      <model name='aws_robomaker_warehouse_PalletJackB_01_004'>
+        <include>
+            <uri>model://aws_robomaker_warehouse_PalletJackB_01</uri>
+        </include>
+        <pose frame=''>-4.991244 -2.329479 0.023266 0 0 2.258769</pose>
+	</model>
+
+    <!-- add palletJack (beside wall) -->
+    <model name='aws_robomaker_warehouse_PalletJackB_01_005'>
+        <include>
+            <uri>model://aws_robomaker_warehouse_PalletJackB_01</uri>
+        </include>
+        <pose frame=''>-3.642095 -8.957083 0.023266 0 0 -2.352039</pose>
+	</model>
+
+    <model name='aws_robomaker_warehouse_PalletJackB_01_006'>
+        <include>
+            <uri>model://aws_robomaker_warehouse_PalletJackB_01</uri>
+        </include>
+        <pose frame=''>-2.782589 -9.352611 0.023266 0 0 -2.664657</pose>
+	</model>
+
+
+
+
     <light name="Warehouse_CeilingLight_003" type="point">
       <pose frame="">0 0 9 0 0 0</pose>
       <diffuse>0.5 0.5 0.5 1</diffuse>

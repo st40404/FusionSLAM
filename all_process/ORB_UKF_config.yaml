@@ -1,4 +1,7 @@
-std_yawdd_: 0.5
-std_a_: 1.8
-std_laspy_: 0.09
-std_laspx_: 0.18
+%YAML:1.0
+
+
+std_a_: 0.2
+std_yawdd_: 0.05
+std_laspx_: 0.03
+std_laspy_: 0.03

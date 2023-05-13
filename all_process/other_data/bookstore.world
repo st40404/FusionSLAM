@@ -59,7 +59,8 @@
         <include>
             <uri>model://aws_robomaker_retail_BookE_01</uri>
         </include>
-        <pose frame="">-5.414000 3.330672 0.934015 -0.000001 -0.000001 -1.541094</pose>
+        <!-- <pose frame="">-5.414000 3.330672 0.934015 -0.000001 -0.000001 -1.541094</pose> -->
+        <pose frame="">-6.414000 3.330672 0.934015 -0.000001 -0.000001 -1.541094</pose>
 	</model>
 
 	<model name="BookE_01_003">
@@ -102,7 +103,8 @@
         <include>
             <uri>model://aws_robomaker_retail_BookE_01</uri>
         </include>
-        <pose frame="">-5.315121 1.771952 0.955242 3.141243 -0.072268 -2.526906</pose>
+        <!-- <pose frame="">-5.315121 1.771952 0.955242 3.141243 -0.072268 -2.526906</pose> -->
+        <pose frame="">-6.315121 1.771952 0.955242 3.141243 -0.072268 -2.526906</pose>
 	</model>
 
 	<model name="BookE_01_009">
@@ -116,7 +118,8 @@
         <include>
             <uri>model://aws_robomaker_retail_BookE_01</uri>
         </include>
-        <pose frame="">-5.503415 1.012063 0.941463 0 0 -1.568440</pose>
+        <!-- <pose frame="">-5.503415 1.012063 0.941463 0 0 -1.568440</pose> -->
+        <pose frame="">-6.503415 1.012063 0.941463 0 0 -1.568440</pose>
 	</model>
 
 	<model name="BookE_01_011">
@@ -130,14 +133,16 @@
         <include>
             <uri>model://aws_robomaker_retail_BookE_01</uri>
         </include>
-        <pose frame="">-5.333584 0.186186 0.949316 -0.000001 -0.004549 -2.798485</pose>
+        <!-- <pose frame="">-5.333584 0.186186 0.949316 -0.000001 -0.004549 -2.798485</pose> -->
+        <pose frame="">-6.333584 0.186186 0.949316 -0.000001 -0.004549 -2.798485</pose>
 	</model>
 
 	<model name="BookE_01_013">
         <include>
             <uri>model://aws_robomaker_retail_BookE_01</uri>
         </include>
-        <pose frame="">-5.403906 2.650881 0.931119 0.021204 -0.000001 -2.355751</pose>
+        <!-- <pose frame="">-5.403906 2.650881 0.931119 0.021204 -0.000001 -2.355751</pose> -->
+        <pose frame="">-6.403906 2.650881 0.931119 0.021204 -0.000001 -2.355751</pose>
 	</model>
 
 	<model name="BookE_01_014">
@@ -289,7 +294,8 @@
         <include>
             <uri>model://aws_robomaker_retail_BookD_01</uri>
         </include>
-        <pose frame="">-4.509612 -1.312536 0.804482 0 0 -0.000004</pose>
+        <!-- <pose frame="">-4.509612 -1.312536 0.804482 0 0 -0.000004</pose> -->
+        <pose frame="">-5.509612 6.312536 0.804482 0 0 -0.000004</pose>
 	</model>
 
 	<model name="BookF_01_003">
@@ -429,7 +435,8 @@
         <include>
             <uri>model://aws_robomaker_retail_BookshelfC_01</uri>
         </include>
-        <pose frame="">-4.517110 -1.310229 0.045908 0 0 0</pose>
+        <!-- <pose frame="">-4.517110 -1.310229 0.045908 0 0 0</pose> -->
+        <pose frame="">-5.517110 6.310229 0.045908 0 0 0</pose>
 	</model>
 
 	<model name="BookshelfC_01_004">
@@ -624,7 +631,8 @@
         <include>
          <uri>model://aws_robomaker_retail_DeskB_01</uri>
         </include>
-        <pose frame="">-5.400709 2.580536 -0.181282 0 -0 0</pose>
+        <!-- <pose frame="">-5.400709 2.580536 -0.181282 0 -0 0</pose> -->
+        <pose frame="">-6.400709 2.580536 -0.181282 0 -0 0</pose>
 	</model>
 
 	<model name="DeskA_01_001">
@@ -1019,7 +1027,8 @@
         <include>
             <uri>model://aws_robomaker_retail_MagicCube_01</uri>
         </include>
-        <pose frame="">-5.383672 5.177522 0.968608 1.564128 -0.000001 -1.555410</pose>
+        <!-- <pose frame="">-5.383672 5.177522 0.968608 1.564128 -0.000001 -1.555410</pose> -->
+        <pose frame="">-6.383672 5.177522 0.968608 1.564128 -0.000001 -1.555410</pose>
 	</model>
 
 	<model name="MagicCube_01_003">
