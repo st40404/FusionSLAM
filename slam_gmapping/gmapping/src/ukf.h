@@ -59,6 +59,17 @@ public:
   ///* Radar measurement noise standard deviation radius change in m/s
   double std_radrd_ ;
 
+  //////////////////////////// add parameter ///////////////////////////
+  ///* control sigma points separate degree
+  double std_alpha_ ;
+
+  ///* control sigma points separate degree
+  double std_k_ ;
+
+  ///* control separate degree of covarience
+  double std_beta_ ;
+  //////////////////////////////////////////////////////////////////////
+
   ///* Weights of sigma points
   VectorXd weights_;
 

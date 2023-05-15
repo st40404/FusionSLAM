@@ -82,10 +82,10 @@
     </node>
     
     <!-- rviz -->
-    <group if="$(arg open_rviz)"> 
+    <!-- <group if="$(arg open_rviz)"> 
         <node pkg="rviz" type="rviz" name="rviz" respawn="true" 
             args="-d $(find turtlebot3_slam)/rviz/turtlebot3_$(arg slam_methods).rviz"/>
-    </group>
+    </group> -->
 
 
     <node pkg="all_process" type="save_log.py" name="save_log" output="screen" required="true"/>

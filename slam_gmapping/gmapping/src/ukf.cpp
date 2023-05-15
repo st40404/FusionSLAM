@@ -332,7 +332,8 @@ void UKF::Prediction(double delta_t) {
       // tool_.Normalize(x_diff(3));
 
       //Set the value of P_
-      P_ = P_ + weights_(i) * x_diff * x_diff.transpose() ;
+      // P_ = P_ + weights_(i) * x_diff * x_diff.transpose();
+      P_ = P_ + weights_(i) * x_diff * x_diff.transpose() + (1 - std_alpha_*std_alpha_ + std_beta_) * x_diff * x_diff.transpose() ;
   }
 }
 
@@ -443,7 +444,12 @@ void UKF::SetUKFParam(int a, std::string path)
     std_yawdd_ = orb_config["std_yawdd_"].as<double>();
     std_laspx_ = orb_config["std_laspx_"].as<double>();
     std_laspy_ = orb_config["std_laspy_"].as<double>();
+    std_alpha_ = orb_config["std_alpha_"].as<double>();
+    std_k_ = orb_config["std_k_"].as<double>();
+    std_beta_ = orb_config["std_beta_"].as<double>();
 
+    // Set Sigma point spreading parameter
+    lambda_ = std_alpha_*std_alpha_*(n_aug_+std_k_) - n_aug_;
 
     // // Process noise standard deviation longitudinal acceleration in m/s^2
     // std_a_ = 1; //need to tune
@@ -494,6 +500,12 @@ void UKF::SetUKFParam(int a, std::string path)
     std_yawdd_ = plicp_config["std_yawdd_"].as<double>();
     std_laspx_ = plicp_config["std_laspx_"].as<double>();
     std_laspy_ = plicp_config["std_laspy_"].as<double>();
+    std_alpha_ = plicp_config["std_alpha_"].as<double>();
+    std_k_ = plicp_config["std_k_"].as<double>();
+    std_beta_ = plicp_config["std_beta_"].as<double>();
+
+    // Set Sigma point spreading parameter
+    lambda_ = std_alpha_*std_alpha_*(n_aug_+std_k_) - n_aug_;
 
     // // Process noise standard deviation longitudinal acceleration in m/s^2
     // std_a_ = 1; //need to tune

@@ -203,6 +203,15 @@ class SlamGMapping
     double MSE_UKF_PLICP_y = 0.0;
     double MSE_UKF_PLICP_sum = 0.0;
 
+    std::vector<double> AE_best_odom;             // for saving UKF-PLICP(compare with PLICP) average error
+
+    double MSE_best_odom_x = 0.0;
+    double MSE_best_odom_y = 0.0;
+    double MSE_best_odom_sum = 0.0;
+
+
+
+
 
     // compute precision of PLICP
     void Precision_PLICP(const nav_msgs::Odometry::ConstPtr& odom, double x, double y);
@@ -214,17 +223,21 @@ class SlamGMapping
     // compute precision of ORB in UKF
     void Precision_UKF_ORB(const nav_msgs::Odometry::ConstPtr& odom, double x_, double y_, double x, double y);
 
-
+    // compute precision of best pose
+    void Precision_Best_Pose(const nav_msgs::Odometry::ConstPtr& odom, double x, double y);
 
     // add KillTrigger function of master service for kill node trigger
     bool KillTrigger(   all_process::Trigger::Request  &req,
                         all_process::Trigger::Response &res);
 
+    // in tuning process, set and save param in yaml
     bool SetORBParam();
     bool SetPLICPParam();
 
     bool SetUKFORBParam();
     bool SetUKFPLICPParam();
+
+    bool SetHypothesisParam();
 
     //define config path
     std::string  config_path = "/home/ron/work/src/all_process/config.yaml";

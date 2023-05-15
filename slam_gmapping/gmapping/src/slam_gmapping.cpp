@@ -1039,12 +1039,12 @@ void SlamGMapping::laserCallback(const sensor_msgs::LaserScan::ConstPtr& scan, c
 
         }
         
-        std::cerr << "aaaaaaaaaaaaaaaaaaaaaaaaaaaa" << std::endl;
-        std::cerr << odom->pose.pose.position.x << "  " << odom->pose.pose.position.y << " " << odom->pose.pose.position.z << std::endl;
-        std::cerr << plicp_pose.getOrigin().getX() << "  " << plicp_pose.getOrigin().getY() << std::endl;
-        std::cerr << plicp_ukf.x_[0] << "  " << plicp_ukf.x_[1] << std::endl;
-        std::cerr << srv.response.x << "  " << srv.response.y << " " << srv.response.z << std::endl;
-        std::cerr << orb_ukf.x_[0] << "  " << orb_ukf.x_[1] << std::endl;
+        // std::cerr << "aaaaaaaaaaaaaaaaaaaaaaaaaaaa" << std::endl;
+        // std::cerr << odom->pose.pose.position.x << "  " << odom->pose.pose.position.y << " " << odom->pose.pose.position.z << std::endl;
+        // std::cerr << plicp_pose.getOrigin().getX() << "  " << plicp_pose.getOrigin().getY() << std::endl;
+        // std::cerr << plicp_ukf.x_[0] << "  " << plicp_ukf.x_[1] << std::endl;
+        // std::cerr << srv.response.x << "  " << srv.response.y << " " << srv.response.z << std::endl;
+        // std::cerr << orb_ukf.x_[0] << "  " << orb_ukf.x_[1] << std::endl;
         
         // std::cerr << odom_pose.x << "  " << odom_pose.y << " " << odom_pose.theta << std::endl;
 
@@ -1053,15 +1053,21 @@ void SlamGMapping::laserCallback(const sensor_msgs::LaserScan::ConstPtr& scan, c
         // best_pose.x = plicp_pose.getOrigin().getX() + ORB_weight(0)*orb_ukf.x_[0] + PLICP_weight(0)*plicp_ukf.x_[0];
         // best_pose.y = plicp_pose.getOrigin().getY() + ORB_weight(1)*orb_ukf.x_[1] + PLICP_weight(1)*plicp_ukf.x_[1];
 
-        best_pose.x = 0.5 * plicp_pose.getOrigin().getX() + 0.5 * srv.response.x;
-        best_pose.y = 0.5 *  plicp_pose.getOrigin().getY() + 0.5 * srv.response.y;
+        // origin PLICP and ORMSLAM2 method
+        // best_pose.x = 0.5 * plicp_pose.getOrigin().getX() + 0.5 * srv.response.x;
+        // best_pose.y = 0.5 *  plicp_pose.getOrigin().getY() + 0.5 * srv.response.y;
+        best_pose.x = 0.5 * plicp_ukf.x_[0] + 0.5 * orb_ukf.x_[0];
+        best_pose.y = 0.5 * plicp_ukf.x_[1] + 0.5 * orb_ukf.x_[1];
+
+
 
         // best_pose.x = ORB_weight(0)*orb_ukf.x_[0] + PLICP_weight(0)*plicp_ukf.x_[0];
         // best_pose.y = ORB_weight(1)*orb_ukf.x_[1] + PLICP_weight(1)*plicp_ukf.x_[1];
         best_pose.theta = odom_pose.theta;
-
-
         // best_pose.theta = last_odom_pose.theta + ORB_weight(2)*orb_ukf.x_[2] + PLICP_weight(2)*plicp_ukf.x_[2];
+
+
+        Precision_Best_Pose(odom, best_pose.x, best_pose.y);
 
         ROS_DEBUG("new best pose: %.3f %.3f %.3f", best_pose.x, best_pose.y, odom_pose.theta);
         ROS_DEBUG("odom pose: %.3f %.3f %.3f", odom_pose.x, odom_pose.y, odom_pose.theta);
@@ -1725,13 +1731,27 @@ void SlamGMapping::Precision_UKF_ORB(const nav_msgs::Odometry::ConstPtr& odom, d
 }
 
 
+void SlamGMapping::Precision_Best_Pose(const nav_msgs::Odometry::ConstPtr& odom, double x, double y)
+{
+  // compute average error and MSE between best position and Gazebo
+  AE_best_odom.push_back( abs(odom->pose.pose.position.x - x ));
+  AE_best_odom.push_back( abs(odom->pose.pose.position.y - y ));
+
+  double flag_x = pow(odom->pose.pose.position.x - x, 2);
+  double flag_y = pow(odom->pose.pose.position.y - y, 2);
+  MSE_best_odom_x   += flag_x; 
+  MSE_best_odom_y   += flag_y; 
+  MSE_best_odom_sum += flag_x + flag_y;
+}
+
+
 
 bool SlamGMapping::KillTrigger(  all_process::Trigger::Request  &req,
                                  all_process::Trigger::Response &res)
 {
   bool flag_orb = false;
   bool flag_plicp;
-
+  bool flag_best;
   // tuning ORB and PLICP param
   // flag_orb = SetORBParam();
   // flag_plicp = SetPLICPParam();
@@ -1739,14 +1759,19 @@ bool SlamGMapping::KillTrigger(  all_process::Trigger::Request  &req,
   // tuning UKF param of ORB and PLICP
   flag_orb = SetUKFORBParam();
   flag_plicp = SetUKFPLICPParam();
+  
+  flag_best = SetHypothesisParam();
 
   if (flag_orb == true || flag_plicp == true)
-
+  { 
     res.trigger = true;
     return true;
+  }
   if (flag_orb == false && flag_plicp == false)
+  {
     res.trigger = false;
     return false;
+  }
 }
 
 bool SlamGMapping::SetORBParam()
@@ -2070,22 +2095,53 @@ bool SlamGMapping::SetUKFORBParam()
   double std_laspx_ = orb_config["std_laspx_"].as<double>();
   double std_laspy_ = orb_config["std_laspy_"].as<double>();
 
-  // adjust the param setting (first tune)
-  double a_max = 1.8;
-  double a_min = 0.2;
-  double a_add = 0.2;
+  // for second tune, add alpha, beta, k
+  double std_alpha_ = orb_config["std_alpha_"].as<double>();
+  double std_k_ = orb_config["std_k_"].as<double>();
+  double std_beta_ = orb_config["std_beta_"].as<double>();
 
-  double yawdd_max = 0.5;
-  double yawdd_min = 0.05;
-  double yawdd_add = 0.05;
+  // // adjust the param setting (first tune)
+  // double a_max = 1.8;
+  // double a_min = 0.2;
+  // double a_add = 0.2;
 
-  double laspx_max = 0.18;
-  double laspx_min = 0.03;
-  double laspx_add = 0.03;
+  // double yawdd_max = 0.5;
+  // double yawdd_min = 0.05;
+  // double yawdd_add = 0.05;
 
-  double laspy_max = 0.09;
-  double laspy_min = 0.03;
-  double laspy_add = 0.03;
+  // double laspx_max = 0.18;
+  // double laspx_min = 0.03;
+  // double laspx_add = 0.03;
+
+  // double laspy_max = 0.09;
+  // double laspy_min = 0.03;
+  // double laspy_add = 0.03;
+
+  // adjust the param setting (second tune)
+
+
+  double yawdd_max = 0.4;
+  double yawdd_min = 0.3;
+  double yawdd_add = 0.02;
+
+  double laspy_max = 0.15;
+  double laspy_min = 0.09;
+  double laspy_add = 0.01;
+
+  double beta_max = 5;
+  double beta_min = 0.0;
+  double beta_add = 0.5;
+
+  double alpha_max = 1.0;
+  double alpha_min = 0.1;
+  double alpha_add = 0.1;
+
+  double k_max = 10.0;
+  double k_min = 0.0;
+  double k_add = 1.0;
+
+
+
 
 
   //compute average error
@@ -2114,8 +2170,8 @@ bool SlamGMapping::SetUKFORBParam()
   std::fstream logFile_ORB_odom;
 
   // Open File
-  std::string odom_path  = log_path + "/data/ORB/ORB_odom/log_" + std::to_string(std_laspx_) + '_' + std::to_string(std_laspy_) + ".txt";
-  std::string ORB_path2 = log_path + "/data/ORB/ORB/log_" + std::to_string(std_laspx_) + '_' + std::to_string(std_laspy_) + ".txt";
+  std::string odom_path  = log_path + "/data/ORB/ORB_odom/log_" + std::to_string(std_k_) + '_' + std::to_string(std_alpha_) + ".txt";
+  std::string ORB_path2 = log_path + "/data/ORB/ORB/log_" + std::to_string(std_k_) + '_' + std::to_string(std_alpha_) + ".txt";
 
   logFile_ORB.open( ORB_path2, std::ios::app);
 
@@ -2124,6 +2180,9 @@ bool SlamGMapping::SetUKFORBParam()
   logFile_ORB << " yawdd:" + std::to_string(std_yawdd_);
   logFile_ORB << " laspx:" + std::to_string(std_laspx_);
   logFile_ORB << " laspy:" + std::to_string(std_laspy_);
+  logFile_ORB << " alpha:" + std::to_string(std_alpha_);
+  logFile_ORB << " k:" + std::to_string(std_k_);
+  logFile_ORB << " beta:" + std::to_string(std_beta_);
 
   logFile_ORB << "---avg:"   + std::to_string(sum);
   logFile_ORB << " mseX:"    + std::to_string(MSE_UKF_ORB_x);
@@ -2139,39 +2198,77 @@ bool SlamGMapping::SetUKFORBParam()
   logFile_ORB_odom << " yawdd:" + std::to_string(std_yawdd_);
   logFile_ORB_odom << " laspx:" + std::to_string(std_laspx_);
   logFile_ORB_odom << " laspy:" + std::to_string(std_laspy_);
+  logFile_ORB_odom << " alpha:" + std::to_string(std_alpha_);
+  logFile_ORB_odom << " k:" + std::to_string(std_k_);
+  logFile_ORB_odom << " beta:" + std::to_string(std_beta_);
 
   logFile_ORB_odom << "---avg:"   + std::to_string(sum);
   logFile_ORB_odom << " mseX:"    + std::to_string(MSE_UKF_ORB_odom_x);
   logFile_ORB_odom << " mseY:"    + std::to_string(MSE_UKF_ORB_odom_y);
   logFile_ORB_odom << " mseS:"    + std::to_string(MSE_UKF_ORB_odom_sum);
   logFile_ORB_odom << "\n";
-  // close file stream
+  // close file stream (first)
   logFile_ORB_odom.close();
 
-  if (std_a_ >= a_min && std_a_ < a_max)
-    orb_config["std_a_"] = std_a_ + a_add;
-  else 
-  {
-    orb_config["std_a_"] = a_min;
+  ////////// furst tune //////////////
+  // if (std_a_ >= a_min && std_a_ < a_max)
+  //   orb_config["std_a_"] = std_a_ + a_add;
+  // else 
+  // {
+  //   orb_config["std_a_"] = a_min;
 
-    if (std_yawdd_ >= yawdd_min && std_yawdd_ < yawdd_max)
-      orb_config["std_yawdd_"] = std_yawdd_ + yawdd_add;
+  //   if (std_yawdd_ >= yawdd_min && std_yawdd_ < yawdd_max)
+  //     orb_config["std_yawdd_"] = std_yawdd_ + yawdd_add;
+  //   else
+  //   {
+  //     orb_config["std_yawdd_"] = yawdd_min;
+
+  //     if (std_laspx_ >= laspx_min && std_laspx_ < laspx_max)
+  //       orb_config["std_laspx_"] = std_laspx_ + laspx_add;
+  //     else
+  //     {
+  //       orb_config["std_laspx_"] = laspx_min;
+  //       if (std_laspy_ >= laspy_min && std_laspy_ < laspy_max)
+  //         orb_config["std_laspy_"] = std_laspy_ + laspy_add;
+  //       else
+  //         return false;
+  //     }
+  //   }
+  // }
+
+  ////////// second tune //////////////
+
+  if (std_yawdd_ >= yawdd_min && std_yawdd_ < yawdd_max)
+    orb_config["std_yawdd_"] = std_yawdd_ + yawdd_add;
+  else
+  {
+    orb_config["std_yawdd_"] = yawdd_min;
+
+    if (std_laspy_ >= laspy_min && std_laspy_ < laspy_max)
+      orb_config["std_laspy_"] = std_laspy_ + laspy_add;
     else
     {
-      orb_config["std_yawdd_"] = yawdd_min;
+      orb_config["std_laspy_"] = laspy_min;
 
-      if (std_laspx_ >= laspx_min && std_laspx_ < laspx_max)
-        orb_config["std_laspx_"] = std_laspx_ + laspx_add;
+      if (std_beta_ >= beta_min && std_beta_ < beta_max)
+        orb_config["std_beta_"] = std_beta_ + beta_add;
       else
       {
-        orb_config["std_laspx_"] = laspx_min;
-        if (std_laspy_ >= laspy_min && std_laspy_ < laspy_max)
-          orb_config["std_laspy_"] = std_laspy_ + laspy_add;
-        else
-          return false;
+        orb_config["std_beta_"] = beta_min;
+
+        if (std_alpha_ >= alpha_min && std_alpha_ < alpha_max )
+          orb_config["std_alpha_"] = std_alpha_ + alpha_add;
+
+        if ((std_alpha_ + alpha_add ) == 1.0)
+        {
+          orb_config["std_k_"] = std_k_ + k_add;
+          if (std_k_ > k_max )
+            return false;
+        }
       }
     }
   }
+  
 
   std::ofstream fout(my_path);
   YAML::Emitter orb_emitter;
@@ -2194,22 +2291,49 @@ bool SlamGMapping::SetUKFPLICPParam()
   double std_laspx_ = plicp_config["std_laspx_"].as<double>();
   double std_laspy_ = plicp_config["std_laspy_"].as<double>();
 
+  // for second tune, add alpha, beta, k
+  double std_alpha_ = plicp_config["std_alpha_"].as<double>();
+  double std_k_ = plicp_config["std_k_"].as<double>();
+  double std_beta_ = plicp_config["std_beta_"].as<double>();
+
   // adjust the param setting (first tune)
-  double a_max = 1.8;
-  double a_min = 0.2;
-  double a_add = 0.2;
+  // double a_max = 1.8;
+  // double a_min = 0.2;
+  // double a_add = 0.2;
 
-  double yawdd_max = 0.5;
-  double yawdd_min = 0.05;
-  double yawdd_add = 0.05;
+  // double yawdd_max = 0.5;
+  // double yawdd_min = 0.05;
+  // double yawdd_add = 0.05;
 
-  double laspx_max = 0.18;
-  double laspx_min = 0.03;
-  double laspx_add = 0.03;
+  // double laspx_max = 0.18;
+  // double laspx_min = 0.03;
+  // double laspx_add = 0.03;
 
-  double laspy_max = 0.09;
-  double laspy_min = 0.03;
-  double laspy_add = 0.03;
+  // double laspy_max = 0.09;
+  // double laspy_min = 0.03;
+  // double laspy_add = 0.03;
+
+  // adjust the param setting (second tune)
+  double yawdd_max = 0.4;
+  double yawdd_min = 0.3;
+  double yawdd_add = 0.02;
+
+  double laspy_max = 0.15;
+  double laspy_min = 0.09;
+  double laspy_add = 0.01;
+
+  double beta_max = 5;
+  double beta_min = 0.0;
+  double beta_add = 0.5;
+
+  double alpha_max = 1.0;
+  double alpha_min = 0.1;
+  double alpha_add = 0.1;
+
+  double k_max = 10.0;
+  double k_min = 0.0;
+  double k_add = 1.0;
+
 
 
   //compute average error
@@ -2238,8 +2362,8 @@ bool SlamGMapping::SetUKFPLICPParam()
   std::fstream logFile_PLICP_odom;
 
   // Open File
-  std::string odom_path  = log_path + "/data/PLICP/PLICP_odom/log_" + std::to_string(std_laspx_) + '_' + std::to_string(std_laspy_) + ".txt";
-  std::string PLICP_path2 = log_path + "/data/PLICP/PLICP/log_" + std::to_string(std_laspx_) + '_' + std::to_string(std_laspy_) + ".txt";
+  std::string odom_path  = log_path + "/data/PLICP/PLICP_odom/log_" + std::to_string(std_k_) + '_' + std::to_string(std_alpha_) + ".txt";
+  std::string PLICP_path2 = log_path + "/data/PLICP/PLICP/log_" + std::to_string(std_k_) + '_' + std::to_string(std_alpha_) + ".txt";
 
   logFile_PLICP.open( PLICP_path2, std::ios::app);
 
@@ -2248,6 +2372,9 @@ bool SlamGMapping::SetUKFPLICPParam()
   logFile_PLICP << " yawdd:" + std::to_string(std_yawdd_);
   logFile_PLICP << " laspx:" + std::to_string(std_laspx_);
   logFile_PLICP << " laspy:" + std::to_string(std_laspy_);
+  logFile_PLICP << " alpha:" + std::to_string(std_alpha_);
+  logFile_PLICP << " k:" + std::to_string(std_k_);
+  logFile_PLICP << " beta:" + std::to_string(std_beta_);
 
   logFile_PLICP << "---avg:"   + std::to_string(sum);
   logFile_PLICP << " mseX:"    + std::to_string(MSE_UKF_PLICP_x);
@@ -2263,6 +2390,9 @@ bool SlamGMapping::SetUKFPLICPParam()
   logFile_PLICP_odom << " yawdd:" + std::to_string(std_yawdd_);
   logFile_PLICP_odom << " laspx:" + std::to_string(std_laspx_);
   logFile_PLICP_odom << " laspy:" + std::to_string(std_laspy_);
+  logFile_PLICP_odom << " alpha:" + std::to_string(std_alpha_);
+  logFile_PLICP_odom << " k:" + std::to_string(std_k_);
+  logFile_PLICP_odom << " beta:" + std::to_string(std_beta_);
 
   logFile_PLICP_odom << "---avg:"   + std::to_string(sum);
   logFile_PLICP_odom << " mseX:"    + std::to_string(MSE_UKF_PLICP_odom_x);
@@ -2272,27 +2402,61 @@ bool SlamGMapping::SetUKFPLICPParam()
   // close file stream
   logFile_PLICP_odom.close();
 
-  if (std_a_ >= a_min && std_a_ < a_max)
-    plicp_config["std_a_"] = std_a_ + a_add;
-  else 
-  {
-    plicp_config["std_a_"] = a_min;
 
-    if (std_yawdd_ >= yawdd_min && std_yawdd_ < yawdd_max)
-      plicp_config["std_yawdd_"] = std_yawdd_ + yawdd_add;
+  //////////////// first tune ///////////////////////////
+  // if (std_a_ >= a_min && std_a_ < a_max)
+  //   plicp_config["std_a_"] = std_a_ + a_add;
+  // else 
+  // {
+  //   plicp_config["std_a_"] = a_min;
+
+  //   if (std_yawdd_ >= yawdd_min && std_yawdd_ < yawdd_max)
+  //     plicp_config["std_yawdd_"] = std_yawdd_ + yawdd_add;
+  //   else
+  //   {
+  //     plicp_config["std_yawdd_"] = yawdd_min;
+
+  //     if (std_laspx_ >= laspx_min && std_laspx_ < laspx_max)
+  //       plicp_config["std_laspx_"] = std_laspx_ + laspx_add;
+  //     else
+  //     {
+  //       plicp_config["std_laspx_"] = laspx_min;
+  //       if (std_laspy_ >= laspy_min && std_laspy_ < laspy_max)
+  //         plicp_config["std_laspy_"] = std_laspy_ + laspy_add;
+  //       else
+  //         return false;
+  //     }
+  //   }
+  // }
+
+  //////////////// second tune ///////////////////////////
+  if (std_yawdd_ >= yawdd_min && std_yawdd_ < yawdd_max)
+    plicp_config["std_yawdd_"] = std_yawdd_ + yawdd_add;
+  else
+  {
+    plicp_config["std_yawdd_"] = yawdd_min;
+
+    if (std_laspy_ >= laspy_min && std_laspy_ < laspy_max)
+      plicp_config["std_laspy_"] = std_laspy_ + laspy_add;
     else
     {
-      plicp_config["std_yawdd_"] = yawdd_min;
+      plicp_config["std_laspy_"] = laspy_min;
 
-      if (std_laspx_ >= laspx_min && std_laspx_ < laspx_max)
-        plicp_config["std_laspx_"] = std_laspx_ + laspx_add;
+      if (std_beta_ >= beta_min && std_beta_ < beta_max)
+        plicp_config["std_beta_"] = std_beta_ + beta_add;
       else
       {
-        plicp_config["std_laspx_"] = laspx_min;
-        if (std_laspy_ >= laspy_min && std_laspy_ < laspy_max)
-          plicp_config["std_laspy_"] = std_laspy_ + laspy_add;
-        else
-          return false;
+        plicp_config["std_beta_"] = beta_min;
+
+        if (std_alpha_ >= alpha_min && std_alpha_ < alpha_max )
+          plicp_config["std_alpha_"] = std_alpha_ + alpha_add;
+
+        if ((std_alpha_ + alpha_add ) == 1.0)
+        {
+          plicp_config["std_k_"] = std_k_ + k_add;
+          if (std_k_ > k_max )
+            return false;
+        }
       }
     }
   }
@@ -2302,6 +2466,84 @@ bool SlamGMapping::SetUKFPLICPParam()
   plicp_emitter << plicp_config;
   fout << plicp_emitter.c_str();
   fout.close();
+  return true;
+}
+
+bool SlamGMapping::SetHypothesisParam()
+{
+  std::string my_path = log_path + "/hypothesis_config.yaml";
+  YAML::Node hypothesis_config = YAML::LoadFile(my_path);
+  double weight     = hypothesis_config["weight"].as<double>();
+
+
+  // adjust the param setting (first tune)
+  // double weight_max = 1.8;
+  // double weight_min = 0.2;
+  // double weight_add = 0.2;
+
+  //compute average error
+  float sum_odom = 0;
+
+  for (int i=0; i<AE_best_odom.size(); i++)
+    sum_odom += AE_best_odom[i];
+
+  sum_odom = sum_odom/AE_best_odom.size();
+
+  MSE_best_odom_x = MSE_best_odom_x/AE_best_odom.size()*2;
+  MSE_best_odom_y = MSE_best_odom_y/AE_best_odom.size()*2;
+  MSE_best_odom_sum = MSE_best_odom_sum/AE_best_odom.size();
+
+  std::fstream logFile_hypothesis;
+
+  // Open File
+  std::string hypothesis_path  = log_path + "/data/Hypothesis/log_" + std::to_string(weight) + ".txt";
+
+  logFile_hypothesis.open( hypothesis_path, std::ios::app);
+
+  //Write data into log file
+  logFile_hypothesis << "weight:"      + std::to_string(weight);
+  // logFile_hypothesis << " yawdd:" + std::to_string(std_yawdd_);
+  // logFile_hypothesis << " laspx:" + std::to_string(std_laspx_);
+  // logFile_hypothesis << " laspy:" + std::to_string(std_laspy_);
+
+  logFile_hypothesis << "---avg:"   + std::to_string(sum_odom);
+  logFile_hypothesis << " mseX:"    + std::to_string(MSE_best_odom_x);
+  logFile_hypothesis << " mseY:"    + std::to_string(MSE_best_odom_y);
+  logFile_hypothesis << " mseS:"    + std::to_string(MSE_best_odom_sum);
+  logFile_hypothesis << "\n";
+  // close file stream
+  logFile_hypothesis.close();
+
+  // if (std_a_ >= a_min && std_a_ < a_max)
+  //   plicp_config["std_a_"] = std_a_ + a_add;
+  // else 
+  // {
+  //   plicp_config["std_a_"] = a_min;
+
+  //   if (std_yawdd_ >= yawdd_min && std_yawdd_ < yawdd_max)
+  //     plicp_config["std_yawdd_"] = std_yawdd_ + yawdd_add;
+  //   else
+  //   {
+  //     plicp_config["std_yawdd_"] = yawdd_min;
+
+  //     if (std_laspx_ >= laspx_min && std_laspx_ < laspx_max)
+  //       plicp_config["std_laspx_"] = std_laspx_ + laspx_add;
+  //     else
+  //     {
+  //       plicp_config["std_laspx_"] = laspx_min;
+  //       if (std_laspy_ >= laspy_min && std_laspy_ < laspy_max)
+  //         plicp_config["std_laspy_"] = std_laspy_ + laspy_add;
+  //       else
+  //         return false;
+  //     }
+  //   }
+  // }
+
+  // std::ofstream fout(my_path);
+  // YAML::Emitter hypothesis_emitter;
+  // hypothesis_emitter << hypothesis_config;
+  // fout << hypothesis_emitter.c_str();
+  // fout.close();
   return true;
 }
 
