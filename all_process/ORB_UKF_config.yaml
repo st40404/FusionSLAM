@@ -1,11 +1,7 @@
-%YAML:1.0
-
-
-std_a_: 1.4
-std_yawdd_: 0.3
+std_beta_: 5
+std_alpha_: 0.4
 std_laspx_: 0.15
 std_laspy_: 0.09
-std_beta_: 0.0
-std_alpha_: 0.1
 std_k_: 0.0
-
+std_a_: 1.4
+std_yawdd_: 0.34

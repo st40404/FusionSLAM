@@ -2136,9 +2136,9 @@ bool SlamGMapping::SetUKFORBParam()
   double alpha_min = 0.1;
   double alpha_add = 0.1;
 
-  double k_max = 10.0;
-  double k_min = 0.0;
-  double k_add = 1.0;
+  // double k_max = 10.0;
+  // double k_min = 0.0;
+  // double k_add = 1.0;
 
 
 
@@ -2261,8 +2261,8 @@ bool SlamGMapping::SetUKFORBParam()
 
         if ((std_alpha_ + alpha_add ) == 1.0)
         {
-          orb_config["std_k_"] = std_k_ + k_add;
-          if (std_k_ > k_max )
+          // orb_config["std_k_"] = std_k_ + k_add;
+          // if (std_k_ > k_max )
             return false;
         }
       }
@@ -2453,8 +2453,8 @@ bool SlamGMapping::SetUKFPLICPParam()
 
         if ((std_alpha_ + alpha_add ) == 1.0)
         {
-          plicp_config["std_k_"] = std_k_ + k_add;
-          if (std_k_ > k_max )
+          // plicp_config["std_k_"] = std_k_ + k_add;
+          // if (std_k_ > k_max )
             return false;
         }
       }

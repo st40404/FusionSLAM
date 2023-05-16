@@ -186,27 +186,29 @@ class Result():
 
                 for data in range(0, len(self.param_statistics[params][param])):
                     if (data == 0):
-                        print ("==================================================")
-                        print ("=========  Average {} of type {}  =========").format(self.header[params], self.param_statistics[params][param][data])
+                        # debug use
+                        # print ("==================================================")
+                        # print ("=========  Average {} of type {}  =========").format(self.header[params], self.param_statistics[params][param][data])
+                        pass
                     else:
                         flag_avg_sum  += float(self.param_list[self.param_statistics[params][param][data]][len(self.header)-4])
                         flag_MSEx_sum += float(self.param_list[self.param_statistics[params][param][data]][len(self.header)-3])
                         flag_MSEy_sum += float(self.param_list[self.param_statistics[params][param][data]][len(self.header)-2])
                         flag_MSEs_sum += float(self.param_list[self.param_statistics[params][param][data]][len(self.header)-1])
-
-                print ("avg  :  {}").format(flag_avg_sum /float(len(self.param_statistics[params][param])))
-                print ("MSEx :  {}").format(flag_MSEx_sum/float(len(self.param_statistics[params][param])))
-                print ("MSEy :  {}").format(flag_MSEy_sum/float(len(self.param_statistics[params][param])))
-                print ("MSEs :  {}").format(flag_MSEs_sum/float(len(self.param_statistics[params][param])))
+                
+                # debeg use
+                # print ("avg  :  {}").format(flag_avg_sum /(float(len(self.param_statistics[params][param]) -1 )))
+                # print ("MSEx :  {}").format(flag_MSEx_sum/(float(len(self.param_statistics[params][param]) -1 )))
+                # print ("MSEy :  {}").format(flag_MSEy_sum/(float(len(self.param_statistics[params][param]) -1 )))
+                # print ("MSEs :  {}").format(flag_MSEs_sum/(float(len(self.param_statistics[params][param]) -1 )))
 
                 flag_result_list = []
-                flag_result_list.append(flag_avg_sum  /float(len(self.param_statistics[params][param])))
-                flag_result_list.append(flag_MSEx_sum /float(len(self.param_statistics[params][param])))
-                flag_result_list.append(flag_MSEy_sum /float(len(self.param_statistics[params][param])))
-                flag_result_list.append(flag_MSEs_sum /float(len(self.param_statistics[params][param])))
+                flag_result_list.append(flag_avg_sum  /float(len(self.param_statistics[params][param]) -1 ))
+                flag_result_list.append(flag_MSEx_sum /float(len(self.param_statistics[params][param]) -1 ))
+                flag_result_list.append(flag_MSEy_sum /float(len(self.param_statistics[params][param]) -1 ))
+                flag_result_list.append(flag_MSEs_sum /float(len(self.param_statistics[params][param]) -1 ))
 
                 self.best_param.append(flag_result_list)
-
         best_param = 0
         best_place = 0 
         print ("\n\n")
@@ -222,7 +224,7 @@ class Result():
                         best_place = data
 
                 print ("==================================================")
-                print ("=========    Best {} of type {}    =========").format(self.header[len(self.header)-self.output+results], self.header[param])
+                print ("=========    Best {} average of type {}    =========").format(self.header[len(self.header)-self.output+results], self.header[param])
                 print ("=========    param : {} , value {} ").format(self.param_size[param][best_place], best_param)
             print ("\n\n")
 
@@ -263,7 +265,11 @@ if __name__=='__main__':
     # orb = Result('/home/ron/work/src/all_process/data/UKF_Second_tune/ORB/ORB')
     # orb = Result('/home/ron/work/src/all_process/data/UKF_Second_tune/ORB/ORB_odom')
     # orb = Result('/home/ron/work/src/all_process/data/UKF_Second_tune/PLICP/PLICP')
-    orb = Result('/home/ron/work/src/all_process/data/UKF_Second_tune/PLICP/PLICP_odom')
+    # orb = Result('/home/ron/work/src/all_process/data/UKF_Second_tune/PLICP/PLICP_odom')
+
+    # orb = Result('/home/ron/work/src/all_process/data/Second_Full_map_ORB_PLICP/PLICP')
+    orb = Result('/home/ron/work/src/all_process/data/Second_Full_map_ORB_PLICP/ORB')
+
 
     # orb = Result('/home/ron/work/src/all_process/data/Third_tune')
     
