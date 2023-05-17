@@ -12,19 +12,24 @@ pkg_check_modules(csm REQUIRED csm)
 # find yaml project
 find_package(yaml-cpp REQUIRED)
 
+# find Python project
+find_package(Python2 COMPONENTS Development NumPy)
+
 
 # add csm pkg
-include_directories(${Boost_INCLUDE_DIRS} ${catkin_INCLUDE_DIRS} ${csm_INCLUDE_DIRS} )
-link_directories(${csm_LIBRARY_DIRS})
+include_directories(${Boost_INCLUDE_DIRS} ${catkin_INCLUDE_DIRS} ${csm_INCLUDE_DIRS} ${Python2_INCLUDE_DIRS})
+link_directories(${csm_LIBRARY_DIRS} ${Python2_INCLUDE_DIRS})
 
 include_directories(src
 		    include
+        /usr/local/include/
+        /usr/include/python2.7/
 )
 
 catkin_package(INCLUDE_DIRS include)
 
 add_executable(slam_gmapping src/slam_gmapping.cpp src/main.cpp src/ukf.cpp src/tools.cpp)
-target_link_libraries(slam_gmapping ${Boost_LIBRARIES} ${catkin_LIBRARIES} ${csm_LIBRARIES} ${YAML_CPP_LIBRARIES} ${OpenCV_LIBS})
+target_link_libraries(slam_gmapping ${Boost_LIBRARIES} ${catkin_LIBRARIES} ${csm_LIBRARIES} ${YAML_CPP_LIBRARIES} ${Python2_INCLUDE_DIRS} ${Python2_NumPy_INCLUDE_DIRS})
 if(catkin_EXPORTED_TARGETS)
   add_dependencies(slam_gmapping ${catkin_EXPORTED_TARGETS} ${csm_EXPORTED_TARGETS} )
 endif()
@@ -33,7 +38,7 @@ add_library(slam_gmapping_nodelet src/slam_gmapping.cpp src/nodelet.cpp src/ukf.
 target_link_libraries(slam_gmapping_nodelet ${catkin_LIBRARIES})
 
 add_executable(slam_gmapping_replay src/slam_gmapping.cpp src/replay.cpp src/ukf.cpp src/tools.cpp)
-target_link_libraries(slam_gmapping_replay ${Boost_LIBRARIES} ${catkin_LIBRARIES} ${csm_LIBRARIES} ${YAML_CPP_LIBRARIES} ${OpenCV_LIBS})
+target_link_libraries(slam_gmapping_replay ${Boost_LIBRARIES} ${catkin_LIBRARIES} ${csm_LIBRARIES} ${YAML_CPP_LIBRARIES} ${Python2_INCLUDE_DIRS} ${Python2_NumPy_INCLUDE_DIRS})
 if(catkin_EXPORTED_TARGETS)
   add_dependencies(slam_gmapping_replay ${catkin_EXPORTED_TARGETS} ${csm_EXPORTED_TARGETS})
 endif()

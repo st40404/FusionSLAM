@@ -1066,6 +1066,13 @@ void SlamGMapping::laserCallback(const sensor_msgs::LaserScan::ConstPtr& scan, c
         best_pose.theta = odom_pose.theta;
         // best_pose.theta = last_odom_pose.theta + ORB_weight(2)*orb_ukf.x_[2] + PLICP_weight(2)*plicp_ukf.x_[2];
 
+        // save trajectory
+        SavePosition(trajectory_PLICP, plicp_pose.getOrigin().getX(), plicp_pose.getOrigin().getY());
+        SavePosition(trajectory_ORB, srv.response.x, srv.response.y);
+        SavePosition(trajectory_UKF_PLICP, plicp_ukf.x_[0], plicp_ukf.x_[1]);
+        SavePosition(trajectory_UKF_ORB, orb_ukf.x_[0], orb_ukf.x_[1]);
+        SavePosition(trajectory_real, odom->pose.pose.position.x, odom->pose.pose.position.y);
+        SavePosition(trajectory_best, best_pose.x, best_pose.y);
 
         Precision_Best_Pose(odom, best_pose.x, best_pose.y);
 
@@ -1749,6 +1756,8 @@ void SlamGMapping::Precision_Best_Pose(const nav_msgs::Odometry::ConstPtr& odom,
 bool SlamGMapping::KillTrigger(  all_process::Trigger::Request  &req,
                                  all_process::Trigger::Response &res)
 {
+  SaveTrajectoryGraph();
+////////////////////////////////  update param  ////////////////////////////////////////
   bool flag_orb = false;
   bool flag_plicp;
   bool flag_best;
@@ -1761,6 +1770,7 @@ bool SlamGMapping::KillTrigger(  all_process::Trigger::Request  &req,
   flag_plicp = SetUKFPLICPParam();
   
   flag_best = SetHypothesisParam();
+////////////////////////////////////////////////////////////////////////////////////////
 
   if (flag_orb == true || flag_plicp == true)
   { 
@@ -1772,6 +1782,97 @@ bool SlamGMapping::KillTrigger(  all_process::Trigger::Request  &req,
     res.trigger = false;
     return false;
   }
+}
+
+void SlamGMapping::SaveTrajectoryGraph()
+{
+  //// save graph
+  std::pair<std::vector<double>, std::vector<double>> points_PLICP = GetPoints(trajectory_PLICP);
+  plt::plot(points_PLICP.first, points_PLICP.second, "m", {{"label", "PLICP"}});
+
+  std::pair<std::vector<double>, std::vector<double>> points_ORB = GetPoints(trajectory_ORB);
+  plt::plot(points_ORB.first, points_ORB.second, "b", {{"label", "ORB"}});
+
+  std::pair<std::vector<double>, std::vector<double>> points_UKF_PLICP = GetPoints(trajectory_UKF_PLICP);
+  plt::plot(points_UKF_PLICP.first, points_UKF_PLICP.second, "g", {{"label", "UKF_PLICP"}});
+
+  std::pair<std::vector<double>, std::vector<double>> points_UKF_ORB = GetPoints(trajectory_UKF_ORB);
+  plt::plot(points_UKF_ORB.first, points_UKF_ORB.second, "y", {{"label", "UKF_ORB"}});
+
+  std::pair<std::vector<double>, std::vector<double>> points_real = GetPoints(trajectory_real);
+  plt::plot(points_real.first, points_real.second, "k", {{"label", "real"}});
+
+  std::pair<std::vector<double>, std::vector<double>> points_best = GetPoints(trajectory_best);
+  plt::plot(points_best.first, points_best.second, "r", {{"label", "Our_method"}});
+
+  // set lable
+  plt::xlabel("x (cm)");
+  plt::ylabel("y (cm)");
+  // enable legend.
+  plt::legend();
+
+  // save path
+  time_t     now = time(0);
+  struct tm  tstruct;
+  char       buf[80];
+  tstruct = *localtime(&now);
+  strftime(buf, sizeof(buf), "%Y_%m_%d_%X", &tstruct);
+
+  std::string graph_path = log_path + "/data/Trajectory/Graph/" + std::string(buf) + ".pdf";
+  plt::title("Trajectory");
+  plt::savefig(graph_path);
+  
+
+  // save log
+  YAML::Node config;
+
+  YAML::Node orb_config = YAML::LoadFile(orb_path);
+  config["ORB"]["nFeatures"]   = orb_config["ORBextractor.nFeatures"].as<int>();
+  config["ORB"]["scaleFactor"] = orb_config["ORBextractor.scaleFactor"].as<float>();
+  config["ORB"]["nLevels"]     = orb_config["ORBextractor.nLevels"].as<int>();
+  config["ORB"]["iniThFAST"]   = orb_config["ORBextractor.iniThFAST"].as<int>();
+  config["ORB"]["minThFAST"]   = orb_config["ORBextractor.minThFAST"].as<int>();
+
+  YAML::Node plicp_config = YAML::LoadFile(plicp_path);
+  config["PLICP"]["max_angular_correction_deg"] = plicp_config["max_angular_correction_deg"].as<float>();
+  config["PLICP"]["max_linear_correction"]      = plicp_config["max_linear_correction"].as<float>();
+  config["PLICP"]["max_iterations"]             = plicp_config["max_iterations"].as<int>();
+  config["PLICP"]["epsilon_xy"]                 = plicp_config["epsilon_xy"].as<float>();
+  config["PLICP"]["epsilon_theta"]              = plicp_config["epsilon_theta"].as<float>();
+  config["PLICP"]["max_correspondence_dist"]    = plicp_config["max_correspondence_dist"].as<float>();
+  config["PLICP"]["outliers_maxPerc"]           = plicp_config["outliers_maxPerc"].as<float>();
+
+  std::string ukf_orb_path = log_path + "/ORB_UKF_config.yaml";
+  YAML::Node ukf_orb_config = YAML::LoadFile(ukf_orb_path);
+  config["ORB_UKF"]["std_a_"]     = ukf_orb_config["std_a_"].as<double>();
+  config["ORB_UKF"]["std_yawdd_"] = ukf_orb_config["std_yawdd_"].as<double>();
+  config["ORB_UKF"]["std_laspx_"] = ukf_orb_config["std_laspx_"].as<double>();
+  config["ORB_UKF"]["std_laspy_"] = ukf_orb_config["std_laspy_"].as<double>();
+  config["ORB_UKF"]["std_beta_"]  = ukf_orb_config["std_beta_"].as<double>();
+  config["ORB_UKF"]["std_alpha_"] = ukf_orb_config["std_alpha_"].as<double>();
+  config["ORB_UKF"]["std_k_"]     = ukf_orb_config["std_k_"].as<double>();
+
+  std::string ukf_plicp_path = log_path + "/PLICP_UKF_config.yaml";
+  YAML::Node ukf_plicp_config = YAML::LoadFile(ukf_plicp_path);
+  config["PLICP_UKF"]["std_a_"]     = ukf_plicp_config["std_a_"].as<double>();
+  config["PLICP_UKF"]["std_yawdd_"] = ukf_plicp_config["std_yawdd_"].as<double>();
+  config["PLICP_UKF"]["std_laspx_"] = ukf_plicp_config["std_laspx_"].as<double>();
+  config["PLICP_UKF"]["std_laspy_"] = ukf_plicp_config["std_laspy_"].as<double>();
+  config["PLICP_UKF"]["std_beta_"]  = ukf_plicp_config["std_beta_"].as<double>();
+  config["PLICP_UKF"]["std_alpha_"] = ukf_plicp_config["std_alpha_"].as<double>();
+  config["PLICP_UKF"]["std_k_"]     = ukf_plicp_config["std_k_"].as<double>();
+
+  config["Trajectory"]["PLICP"] = trajectory_PLICP;
+  config["Trajectory"]["ORB"] = trajectory_ORB;
+  config["Trajectory"]["UKF_PLICP"] = trajectory_UKF_PLICP;
+  config["Trajectory"]["UKF_ORB"] = trajectory_UKF_ORB;
+  config["Trajectory"]["real"] = trajectory_real;
+  config["Trajectory"]["Our_method"] = trajectory_best;
+
+
+  std::string graph_log_path = log_path + "/data/Trajectory/Log/" + std::string(buf) + ".yaml";
+  std::ofstream fout(graph_log_path);
+  fout << config;
 }
 
 bool SlamGMapping::SetORBParam()
@@ -2468,6 +2569,29 @@ bool SlamGMapping::SetUKFPLICPParam()
   fout.close();
   return true;
 }
+
+
+
+void SlamGMapping::SavePosition(std::vector<double>& container, double x, double y)
+{
+  container.push_back(100*x);
+  container.push_back(100*y);
+}
+
+std::pair<std::vector<double>, std::vector<double>> SlamGMapping::GetPoints(std::vector<double> container)
+{
+  std::vector<double> container_x;
+  std::vector<double> container_y;
+
+  for (int i = 0 ; i < container.size()/2; i++)
+  {
+    container_x.push_back(container[2*i]);
+    container_y.push_back(container[2*i+1]);
+  }
+  return std::make_pair(container_x, container_y);
+}
+
+
 
 bool SlamGMapping::SetHypothesisParam()
 {

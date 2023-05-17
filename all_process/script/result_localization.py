@@ -34,7 +34,7 @@ class Result():
 
         self.computeBestResult()
         self.computeBestParam()
-        self.drawGraph()
+        # self.drawGraph()
 
 
     def computeBestResult(self):
@@ -224,7 +224,7 @@ class Result():
                         best_place = data
 
                 print ("==================================================")
-                print ("=========    Best {} average of type {}    =========").format(self.header[len(self.header)-self.output+results], self.header[param])
+                print ("=========    average {}  of type {}    =========").format(self.header[len(self.header)-self.output+results], self.header[param])
                 print ("=========    param : {} , value {} ").format(self.param_size[param][best_place], best_param)
             print ("\n\n")
 
@@ -237,8 +237,7 @@ class Result():
             os.makedirs(newpath)
         newpath = self.path + "/result/books_read.png"
 
-        # print (self.output)
-
+        # save plt
         for output in range(0, self.output):
             for param in range(0, len(self.param_statistics)):
                 for data in range(0, len(self.param_statistics[param])):

@@ -63,6 +63,10 @@
 #include <cmath>
 #include <vector>
 
+// use matplotlibcpp to draw trajectory
+#include "matplotlibcpp.h"
+
+
 // add UKF library
 // #include "Eigen/Dense"
 // #include "ukf.h"
@@ -75,6 +79,7 @@
 #include <message_filters/sync_policies/approximate_time.h>
 #include <nav_msgs/Odometry.h>
 
+namespace plt = matplotlibcpp;
 
 class SlamGMapping
 {
@@ -209,9 +214,12 @@ class SlamGMapping
     double MSE_best_odom_y = 0.0;
     double MSE_best_odom_sum = 0.0;
 
-
-
-
+    std::vector<double> trajectory_PLICP;             // for saving PLICP trajectory
+    std::vector<double> trajectory_ORB;               // for saving ORB trajectory
+    std::vector<double> trajectory_UKF_PLICP;        // for saving UKF of PLICP trajectory
+    std::vector<double> trajectory_UKF_ORB;           // for saving UKF of ORB trajectory
+    std::vector<double> trajectory_real;              // for saving odom trajectory
+    std::vector<double> trajectory_best;              // for saving best trajectory
 
     // compute precision of PLICP
     void Precision_PLICP(const nav_msgs::Odometry::ConstPtr& odom, double x, double y);
@@ -238,6 +246,10 @@ class SlamGMapping
     bool SetUKFPLICPParam();
 
     bool SetHypothesisParam();
+
+    void SavePosition(std::vector<double>& container, double x, double y);
+    std::pair<std::vector<double>, std::vector<double>> GetPoints(std::vector<double> container);
+    void SaveTrajectoryGraph();
 
     //define config path
     std::string  config_path = "/home/ron/work/src/all_process/config.yaml";
