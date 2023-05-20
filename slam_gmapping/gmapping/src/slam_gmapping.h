@@ -79,6 +79,10 @@
 #include <message_filters/sync_policies/approximate_time.h>
 #include <nav_msgs/Odometry.h>
 
+#include <geometry_msgs/TwistStamped.h>
+#include <geometry_msgs/TransformStamped.h>
+
+
 namespace plt = matplotlibcpp;
 
 class SlamGMapping
@@ -107,13 +111,29 @@ class SlamGMapping
     std::vector<double> a_cos_;             // for saving each cos value
     std::vector<double> a_sin_;             // for saving each sin value
 
+    // **** keyframe params: when to generate the keyframe scan
+    // if either is set to 0, reduces to frame-to-frame matching
+    double kf_dist_linear_;
+    double kf_dist_linear_sq_;
+    double kf_dist_angular_;
+    int kf_scan_count_;
+    int scan_count_;
+
+    geometry_msgs::Twist latest_velocity_;
+
+    tf::Transform base_in_map_;           // base_link在map坐标系下的坐标
+    tf::Transform base_in_map_keyframe_;  // base_link在map坐标系下的keyframe的坐标
+
+    tf::Transform base_to_laser_;    
+    tf::Transform laser_to_base_; 
+
     // csm
     sm_params input_;
     sm_result output_;
     LDP prev_ldp_scan_;
 
     // change method : 0 = gmapping, 1 = PLICP, 2 = PLICP+ORB
-    int mymethod = 2;
+    int mymethod = 1;
 
     // initialize PLICP parameters
     void InitICPParams();
@@ -125,6 +145,12 @@ class SlamGMapping
     void ScanMatchWithPLICP(LDP &curr_ldp_scan, const ros::Time &time);
     // using PLICP method
     bool ScanCallback(const sensor_msgs::LaserScan::ConstPtr& scan, GMapping::OrientedPoint& gmap_pose);
+    void GetPrediction(double &prediction_change_x, double &prediction_change_y, double &prediction_change_angle, double dt);
+    void CreateTfFromXYTheta(double x, double y, double theta, tf::Transform& t);
+    bool NewKeyframeNeeded(const tf::Transform &d);
+    bool GetBaseToLaserTf(const std::string &frame_id);
+
+
 
     // subscribe ORB pose
     ros::Subscriber sub;
@@ -271,6 +297,7 @@ class SlamGMapping
     tf::MessageFilter<sensor_msgs::LaserScan>* scan_filter_;
     tf::TransformBroadcaster* tfB_;
 
+    tf2_ros::Buffer tfBuffer_;
     // add Odometry subscriber
     message_filters::Subscriber<nav_msgs::Odometry>* odom_filter_sub_;
 

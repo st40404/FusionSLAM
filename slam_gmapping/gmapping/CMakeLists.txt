@@ -1,6 +1,7 @@
 cmake_minimum_required(VERSION 2.8)
 project(gmapping)
 
+
 find_package(catkin REQUIRED nav_msgs nodelet openslam_gmapping roscpp tf rosbag_storage)
 
 find_package(Boost REQUIRED)
@@ -14,7 +15,6 @@ find_package(yaml-cpp REQUIRED)
 
 # find Python project
 find_package(Python2 COMPONENTS Development NumPy)
-
 
 # add csm pkg
 include_directories(${Boost_INCLUDE_DIRS} ${catkin_INCLUDE_DIRS} ${csm_INCLUDE_DIRS} ${Python2_INCLUDE_DIRS})

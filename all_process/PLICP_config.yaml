@@ -7,3 +7,8 @@ epsilon_xy: 0.00001
 epsilon_theta: 0.00001
 max_correspondence_dist: 0.5
 outliers_maxPerc: 0.9
+
+
+kf_dist_linear: 0.1     # m
+kf_dist_angular: 0.1    # deg
+kf_scan_count: 5   

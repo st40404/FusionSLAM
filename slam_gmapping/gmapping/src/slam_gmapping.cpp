@@ -584,6 +584,9 @@ SlamGMapping::initMapper(const sensor_msgs::LaserScan& scan)
   q.setRPY(0.0, 0.0, initialPose.theta);
   plicp_pose.setRotation(q);
 
+  base_in_map_ = plicp_pose;
+  base_in_map_keyframe_ = plicp_pose;
+
 
   gsp_->setMatchingParameters(maxUrange_, maxRange_, sigma_,
                               kernelSize_, lstep_, astep_, iterations_,
@@ -740,18 +743,20 @@ SlamGMapping::ScanCallback(const sensor_msgs::LaserScan::ConstPtr& scan, GMappin
   // compute PL-ICP compute the transform
   ScanMatchWithPLICP(curr_ldp_scan, scan->header.stamp);
 
+  
+
   // compute PLICP current position, and save in plicp_pose
-  tf::Transform plicp_trans;
-  plicp_trans.setOrigin( tf::Vector3(-1*output_.x[0], -1*output_.x[1], 0.0) );
-  tf::Quaternion q;
-  q.setRPY(0.0, 0.0, output_.x[2]);
-  plicp_trans.setRotation(q);
-  plicp_pose = plicp_pose * plicp_trans;
+  // tf::Transform plicp_trans;
+  // plicp_trans.setOrigin( tf::Vector3(-1*output_.x[0], -1*output_.x[1], 0.0) );
+  // tf::Quaternion q;
+  // q.setRPY(0.0, 0.0, output_.x[2]);
+  // plicp_trans.setRotation(q);
+  // plicp_pose = plicp_pose * plicp_trans;
 
 
-  GMapping::OrientedPoint icp_pose( plicp_pose.getOrigin().getX(),
-                                    plicp_pose.getOrigin().getY(),
-                                    tf::getYaw(plicp_pose.getRotation()));
+  GMapping::OrientedPoint icp_pose( base_in_map_.getOrigin().getX(),
+                                    base_in_map_.getOrigin().getY(),
+                                    tf::getYaw(base_in_map_.getRotation()));
 
   // save pose and scan reading
   reading.setPose(icp_pose);
@@ -870,6 +875,22 @@ void SlamGMapping::laserCallback(const sensor_msgs::LaserScan::ConstPtr& scan, c
       InitICPParams();
       CreateCache(scan);
       LaserScanToLDP(scan, prev_ldp_scan_);
+
+      if (!GetBaseToLaserTf(scan->header.frame_id))
+      {
+          ROS_WARN("Skipping scan");
+          return;
+      }
+
+      input_.laser[0] = 0.0;
+      input_.laser[1] = 0.0;
+      input_.laser[2] = 0.0;
+
+      // Initialize output_ vectors as Null for error-checking
+      output_.cov_x_m = 0;
+      output_.dx_dy1_m = 0;
+      output_.dx_dy2_m = 0;
+
       last_icp_time_ = scan->header.stamp;
       got_first_scan_ = true;
     }
@@ -893,21 +914,19 @@ void SlamGMapping::laserCallback(const sensor_msgs::LaserScan::ConstPtr& scan, c
       // std::cerr << "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa" << std::endl;
       // std::cerr << odom_pose.x << "  " << odom_pose.y << "  " << odom_pose.theta*180/M_PI << std::endl;
       // std::cerr << output_.x[0] << "  " << output_.x[1] << "  " << output_.x[2]*180/M_PI << std::endl;
-      // std::cerr <<  plicp_pose.getOrigin().getX() << " " << plicp_pose.getOrigin().getY() << " " << plicp_pose.getOrigin().getZ() << " " << tf::getYaw(plicp_pose.getRotation())*180/M_PI <<std::endl;
+      // std::cerr <<  base_in_map_.getOrigin().getX() << " " << base_in_map_.getOrigin().getY() << " " << tf::getYaw(base_in_map_.getRotation())*180/M_PI <<std::endl;
 
+      Precision_PLICP(odom, base_in_map_.getOrigin().getX(), base_in_map_.getOrigin().getY());
 
-
-
-      Precision_PLICP(odom, plicp_pose.getOrigin().getX(), plicp_pose.getOrigin().getY());
-
-      ROS_DEBUG("new best pose: %.3f %.3f %.3f", plicp_pose.getOrigin().getX(), plicp_pose.getOrigin().getY(), tf::getYaw(plicp_pose.getRotation()));
+      ROS_DEBUG("new best pose: %.3f %.3f %.3f", base_in_map_.getOrigin().getX(), base_in_map_.getOrigin().getY(), tf::getYaw(base_in_map_.getRotation()));
       ROS_DEBUG("odom pose: %.3f %.3f %.3f", odom_pose.x, odom_pose.y, odom_pose.theta);
       ROS_DEBUG("correction: %.3f %.3f %.3f", output_.x[0], output_.x[1], output_.x[2]);
 
 
       // laser_to_map : lidar pose in map frame
       // odom_to_laser : lidar pose in odom frame
-      tf::Transform laser_to_map = tf::Transform(tf::createQuaternionFromRPY(0, 0, tf::getYaw(plicp_pose.getRotation())), tf::Vector3(plicp_pose.getOrigin().getX(), plicp_pose.getOrigin().getY(), 0.0)).inverse();
+      // tf::Transform laser_to_map = tf::Transform(tf::createQuaternionFromRPY(0, 0, tf::getYaw(plicp_pose.getRotation())), tf::Vector3(plicp_pose.getOrigin().getX(), plicp_pose.getOrigin().getY(), 0.0)).inverse();
+      tf::Transform laser_to_map = tf::Transform(tf::createQuaternionFromRPY(0, 0, tf::getYaw(base_in_map_.getRotation())), tf::Vector3(base_in_map_.getOrigin().getX(), base_in_map_.getOrigin().getY(), 0.0)).inverse();
       tf::Transform odom_to_laser = tf::Transform(tf::createQuaternionFromRPY(0, 0, odom_pose.theta), tf::Vector3(odom_pose.x, odom_pose.y, 0.0));
 
       // map_to_odom_ : compute relationship between odom frame and map frame
@@ -958,6 +977,16 @@ void SlamGMapping::laserCallback(const sensor_msgs::LaserScan::ConstPtr& scan, c
         InitICPParams();
         CreateCache(scan);
         LaserScanToLDP(scan, prev_ldp_scan_);
+
+        input_.laser[0] = 0.0;
+        input_.laser[1] = 0.0;
+        input_.laser[2] = 0.0;
+
+        // Initialize output_ vectors as Null for error-checking
+        output_.cov_x_m = 0;
+        output_.dx_dy1_m = 0;
+        output_.dx_dy2_m = 0;
+
         last_icp_time_ = scan->header.stamp;
 
         // UKF params
@@ -1315,9 +1344,9 @@ void SlamGMapping::LaserScanToLDP(const sensor_msgs::LaserScan::ConstPtr &scan_m
     ldp->odometry[1] = 0.0;
     ldp->odometry[2] = 0.0;
 
-    ldp->estimate[0] = 0.0;
-    ldp->estimate[1] = 0.0;
-    ldp->estimate[2] = 0.0;
+    // ldp->estimate[0] = 0.0;
+    // ldp->estimate[1] = 0.0;
+    // ldp->estimate[2] = 0.0;
 
     ldp->true_pose[0] = 0.0;
     ldp->true_pose[1] = 0.0;
@@ -1492,6 +1521,13 @@ void SlamGMapping::InitICPParams()
     input_.max_correspondence_dist    = plicp_config["max_correspondence_dist"].as<float>();
     input_.outliers_maxPerc           = plicp_config["outliers_maxPerc"].as<float>();
 
+    // kf_dist_linear_    = plicp_config["kf_dist_linear"].as<double>();
+    // kf_dist_angular_   = plicp_config["kf_dist_angular"].as<double>();
+    // kf_scan_count_     = plicp_config["kf_scan_count"].as<int>();
+    // kf_dist_linear_sq_ = kf_dist_linear_ * kf_dist_linear_;
+    scan_count_ = 0;
+
+
     ORB_weight = VectorXd(3);
     PLICP_weight = VectorXd(3);
     
@@ -1517,32 +1553,184 @@ void SlamGMapping::ScanMatchWithPLICP(LDP &curr_ldp_scan, const ros::Time &time)
     // of the laser in the laser frame since the last scan
     // The computed correction is then propagated using the tf machinery
 
+    prev_ldp_scan_->odometry[0] = 0.0;
+    prev_ldp_scan_->odometry[1] = 0.0;
+    prev_ldp_scan_->odometry[2] = 0.0;
+
+    prev_ldp_scan_->estimate[0] = 0.0;
+    prev_ldp_scan_->estimate[1] = 0.0;
+    prev_ldp_scan_->estimate[2] = 0.0;
+
+    prev_ldp_scan_->true_pose[0] = 0.0;
+    prev_ldp_scan_->true_pose[1] = 0.0;
+    prev_ldp_scan_->true_pose[2] = 0.0;
+
     input_.laser_ref = prev_ldp_scan_;
     input_.laser_sens = curr_ldp_scan;
 
+    // 匀速模型，速度乘以时间，得到预测的odom坐标系下的位姿变换
+    double dt = (time - last_icp_time_).toSec();
+    double pr_ch_x, pr_ch_y, pr_ch_a;
+    GetPrediction(pr_ch_x, pr_ch_y, pr_ch_a, dt);
+
+    tf::Transform prediction_change;
+    CreateTfFromXYTheta(pr_ch_x, pr_ch_y, pr_ch_a, prediction_change);
+
+    prediction_change = prediction_change * (base_in_map_ * base_in_map_keyframe_.inverse());
+
+    input_.first_guess[0] = prediction_change.getOrigin().getX();
+    input_.first_guess[1] = prediction_change.getOrigin().getY();
+    input_.first_guess[2] = tf::getYaw(prediction_change.getRotation());
+
+    // If they are non-Null, free covariance gsl matrices to avoid leaking memory
+    if (output_.cov_x_m)
+    {
+        gsl_matrix_free(output_.cov_x_m);
+        output_.cov_x_m = 0;
+    }
+    if (output_.dx_dy1_m)
+    {
+        gsl_matrix_free(output_.dx_dy1_m);
+        output_.dx_dy1_m = 0;
+    }
+    if (output_.dx_dy2_m)
+    {
+        gsl_matrix_free(output_.dx_dy2_m);
+        output_.dx_dy2_m = 0;
+    }
+
     // 位姿的预测值为0，就是不进行预测
-    input_.first_guess[0] = 0;
-    input_.first_guess[1] = 0;
-    input_.first_guess[2] = 0;
+    // input_.first_guess[0] = 0;
+    // input_.first_guess[1] = 0;
+    // input_.first_guess[2] = 0;
 
     // 调用csm里的函数进行plicp计算帧间的匹配，输出结果保存在output里
     sm_icp(&input_, &output_);
 
-    // if (output_.valid)
-    // {
-    //     std::cout << "transfrom: (" << output_.x[0] << ", " << output_.x[1] << ", " 
-    //         << output_.x[2] * 180 / M_PI << ")" << std::endl;
-    // }
-    // else
-    // {
-    //     std::cout << "not Converged" << std::endl;
-    // }
+    tf::Transform corr_ch;
+
+    if (output_.valid)
+    {
+        // 雷达坐标系下的坐标变换
+        tf::Transform corr_ch_l;
+        CreateTfFromXYTheta(-1*output_.x[0], -1*output_.x[1], output_.x[2], corr_ch_l);
+
+        base_in_map_ = base_in_map_ * corr_ch_l;
+        
+        latest_velocity_.linear.x = corr_ch_l.getOrigin().getX() / dt;
+        latest_velocity_.angular.z = tf::getYaw(corr_ch_l.getRotation()) / dt;
+    }
+    else
+    {
+        ROS_WARN("not Converged");
+    }
+
+    // 检查是否需要更新关键帧坐标
+    if (NewKeyframeNeeded(corr_ch))
+    {
+        // 更新关键帧坐标
+        ld_free(prev_ldp_scan_);
+        prev_ldp_scan_ = curr_ldp_scan;
+        base_in_map_keyframe_ = base_in_map_;
+    }
+    else
+    {
+        ld_free(curr_ldp_scan);
+    }
 
     // 删除prev_ldp_scan_，用curr_ldp_scan进行替代
-    ld_free(prev_ldp_scan_);
-    prev_ldp_scan_ = curr_ldp_scan;
+    // ld_free(prev_ldp_scan_);
+    // prev_ldp_scan_ = curr_ldp_scan;
     last_icp_time_ = time;
 }
+
+/**
+ * 推测从上次icp的时间到当前时刻间的坐标变换
+ * 使用匀速模型，根据当前的速度，乘以时间，得到推测出来的位移
+ */
+void SlamGMapping::GetPrediction( double &prediction_change_x,
+                                  double &prediction_change_y,
+                                  double &prediction_change_angle,
+                                  double dt)
+{
+    // 速度小于 1e-6 , 则认为是静止的
+    prediction_change_x = latest_velocity_.linear.x < 1e-6 ? 0.0 : dt * latest_velocity_.linear.x;
+    prediction_change_y = latest_velocity_.linear.y < 1e-6 ? 0.0 : dt * latest_velocity_.linear.y;
+    prediction_change_angle = latest_velocity_.linear.z < 1e-6 ? 0.0 : dt * latest_velocity_.linear.z;
+
+    if (prediction_change_angle >= M_PI)
+        prediction_change_angle -= 2.0 * M_PI;
+    else if (prediction_change_angle < -M_PI)
+        prediction_change_angle += 2.0 * M_PI;
+}
+
+/**
+ * 从x,y,theta创建tf
+ */
+void SlamGMapping::CreateTfFromXYTheta(double x, double y, double theta, tf::Transform &t)
+{
+    t.setOrigin(tf::Vector3(x, y, 0.0));
+    tf::Quaternion q;
+    q.setRPY(0.0, 0.0, theta);
+    t.setRotation(q);
+}
+
+
+/**
+ * 如果平移大于阈值，角度大于阈值，则创新新的关键帧
+ * @return 需要创建关键帧返回true, 否则返回false
+ */
+bool SlamGMapping::NewKeyframeNeeded(const tf::Transform &d)
+{
+    scan_count_++;
+
+    if (fabs(tf::getYaw(d.getRotation())) > kf_dist_angular_)
+        return true;
+
+    if (scan_count_ == kf_scan_count_)
+    {
+        scan_count_ = 0;
+        return true;
+    }
+        
+    double x = d.getOrigin().getX();
+    double y = d.getOrigin().getY();
+    if (x * x + y * y > kf_dist_linear_sq_)
+        return true;
+
+    return false;
+}
+
+/**
+ * 获取机器人坐标系与雷达坐标系间的坐标变换
+ */
+bool SlamGMapping::GetBaseToLaserTf(const std::string &frame_id)
+{
+    ros::Time t = ros::Time::now();
+
+    geometry_msgs::TransformStamped transformStamped;
+    // 获取tf并不是瞬间就能获取到的，要给1秒的缓冲时间让其找到tf
+    try
+    {
+      tf2_ros::TransformListener tfListener_(tfBuffer_);
+      transformStamped = tfBuffer_.lookupTransform("base_link", frame_id, t, ros::Duration(1.0));
+    }
+    catch (tf::TransformException &ex)
+    {
+        ROS_WARN("%s", ex.what());
+        ros::Duration(1.0).sleep();
+        return false;
+    }
+
+    // 将获取的tf存到base_to_laser_中
+    tf::Quaternion q(transformStamped.transform.rotation.x, transformStamped.transform.rotation.y, transformStamped.transform.rotation.z, transformStamped.transform.rotation.w);
+    base_to_laser_.setOrigin(tf::Vector3(transformStamped.transform.translation.x, transformStamped.transform.translation.y, 0.0));
+    base_to_laser_.setRotation(q);
+
+    laser_to_base_ = base_to_laser_.inverse();
+    return true;
+}
+
 
 void SlamGMapping::publishMap(const sensor_msgs::LaserScan& scan)
 {
@@ -2360,7 +2548,7 @@ bool SlamGMapping::SetUKFORBParam()
         if (std_alpha_ >= alpha_min && std_alpha_ < alpha_max )
           orb_config["std_alpha_"] = std_alpha_ + alpha_add;
 
-        if ((std_alpha_ + alpha_add ) == 1.0)
+        if ((std_alpha_ + alpha_add ) > alpha_max)
         {
           // orb_config["std_k_"] = std_k_ + k_add;
           // if (std_k_ > k_max )
@@ -2552,7 +2740,7 @@ bool SlamGMapping::SetUKFPLICPParam()
         if (std_alpha_ >= alpha_min && std_alpha_ < alpha_max )
           plicp_config["std_alpha_"] = std_alpha_ + alpha_add;
 
-        if ((std_alpha_ + alpha_add ) == 1.0)
+        if ((std_alpha_ + alpha_add ) > alpha_max)
         {
           // plicp_config["std_k_"] = std_k_ + k_add;
           // if (std_k_ > k_max )

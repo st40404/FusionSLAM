@@ -12,14 +12,14 @@
     name="path_to_settings"
     default="$(find orbslam2_ros)/data/TUM3_sim.yaml"
     />
-
+    
     <!-- open node: orb_slam -->
-    <node pkg="orbslam2_ros"
+    <!-- <node pkg="orbslam2_ros"
         name="RGBD"
         type="RGBD"
         args= "$(arg path_to_vocabulary) $(arg path_to_settings)" 
         respawn="true" 
-        />
+        /> -->
 
         
     <!-- -d : delay second before start, -r : rate of player -->
@@ -28,7 +28,7 @@
           type="play" 
           name="player" 
           output="screen" 
-          args="--clock -r 1 -d 10 $(find savebag)/bag/short_test.bag" 
+          args="--clock -r 1 -d 3 $(find savebag)/bag/short_test.bag" 
           respawn="true"
           respawn_delay="5"
           />
@@ -82,10 +82,10 @@
     </node>
     
     <!-- rviz -->
-    <!-- <group if="$(arg open_rviz)"> 
+    <group if="$(arg open_rviz)"> 
         <node pkg="rviz" type="rviz" name="rviz" respawn="true" 
             args="-d $(find turtlebot3_slam)/rviz/turtlebot3_$(arg slam_methods).rviz"/>
-    </group> -->
+    </group>
 
 
     <node pkg="all_process" type="save_log.py" name="save_log" output="screen" required="true"/>

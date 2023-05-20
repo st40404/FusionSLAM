@@ -30,6 +30,7 @@
   <run_depend>nodelet</run_depend>
   <run_depend>all_process</run_depend>
 
+
   <export>
     <nodelet plugin="${prefix}/nodelet_plugins.xml" />
   </export>
