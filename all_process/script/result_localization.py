@@ -212,7 +212,6 @@ class Result():
         best_param = 0
         best_place = 0 
         print ("\n\n")
-
         for results in range(0, len(self.best_param[param])):
             for param in range(0, len(self.param_statistics)):
                 for data in range(0, len(self.param_statistics[param])):
@@ -267,7 +266,12 @@ if __name__=='__main__':
     # orb = Result('/home/ron/work/src/all_process/data/UKF_Second_tune/PLICP/PLICP_odom')
 
     # orb = Result('/home/ron/work/src/all_process/data/Second_Full_map_ORB_PLICP/PLICP')
-    orb = Result('/home/ron/work/src/all_process/data/Second_Full_map_ORB_PLICP/ORB')
+    # orb = Result('/home/ron/work/src/all_process/data/Second_Full_map_ORB_PLICP/ORB')
+
+    # orb = Result('/home/ron/work/src/all_process/data/UKF_Third_tune/ORB/ORB')
+    orb = Result('/home/ron/work/src/all_process/data/UKF_Third_tune/ORB/ORB_odom')
+    # orb = Result('/home/ron/work/src/all_process/data/UKF_Third_tune/PLICP/PLICP')
+    # orb = Result('/home/ron/work/src/all_process/data/UKF_Third_tune/PLICP/PLICP_odom')
 
 
     # orb = Result('/home/ron/work/src/all_process/data/Third_tune')

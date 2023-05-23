@@ -578,6 +578,13 @@ SlamGMapping::initMapper(const sensor_msgs::LaserScan& scan)
     initialPose = GMapping::OrientedPoint(0.0, 0.0, 0.0);
   }
 
+  //////////////////////////////   adding    //////////////////////////////
+  // save path of log, PLICP config and ORB config
+  YAML::Node config = YAML::LoadFile(config_path);
+  log_path   = config["log_path"].as<std::string>();
+  plicp_path = config["plicp_config"].as<std::string>();
+  orb_path   = config["orb_config"].as<std::string>();
+
   // need to give plicp_pose a initialpose by laser pose 
   plicp_pose.setOrigin( tf::Vector3(initialPose.x, initialPose.y, 0.0) );
   tf::Quaternion q;
@@ -586,6 +593,11 @@ SlamGMapping::initMapper(const sensor_msgs::LaserScan& scan)
 
   base_in_map_ = plicp_pose;
   base_in_map_keyframe_ = plicp_pose;
+
+  // use for PLICP first guass by odometry
+  odom_last.x = initialPose.x;
+  odom_last.y = initialPose.y;
+  /////////////////////////////////////////////////////////////////////////
 
 
   gsp_->setMatchingParameters(maxUrange_, maxRange_, sigma_,
@@ -609,12 +621,6 @@ SlamGMapping::initMapper(const sensor_msgs::LaserScan& scan)
 
   // Call the sampling function once to set the seed.
   GMapping::sampleGaussian(1,seed_);
-
-  // save path of log, PLICP config and ORB config
-  YAML::Node config = YAML::LoadFile(config_path);
-  log_path   = config["log_path"].as<std::string>();
-  plicp_path = config["plicp_config"].as<std::string>();
-  orb_path   = config["orb_config"].as<std::string>();
 
   ROS_INFO("Initialization complete");
   return true;
@@ -725,8 +731,6 @@ SlamGMapping::ScanCallback(const sensor_msgs::LaserScan::ConstPtr& scan, GMappin
   // need to keep our array around.
   delete[] ranges_double;
 
-  
-
   /*
   ROS_DEBUG("scanpose (%.3f): %.3f %.3f %.3f\n",
             scan.header.stamp.toSec(),
@@ -736,6 +740,10 @@ SlamGMapping::ScanCallback(const sensor_msgs::LaserScan::ConstPtr& scan, GMappin
             */
   ROS_DEBUG("processing scan");
 
+
+  odom_last.x = gmap_pose.x - odom_last.x;
+  odom_last.y = gmap_pose.y - odom_last.y;
+
   // using PLICP compute
   LDP curr_ldp_scan;
   // change scan type transform to csm type
@@ -743,7 +751,10 @@ SlamGMapping::ScanCallback(const sensor_msgs::LaserScan::ConstPtr& scan, GMappin
   // compute PL-ICP compute the transform
   ScanMatchWithPLICP(curr_ldp_scan, scan->header.stamp);
 
-  
+  odom_last.x = gmap_pose.x;
+  odom_last.y = gmap_pose.y;
+
+  // std::cerr << output_.x[0] << "  " << output_.x[1] << std::endl;
 
   // compute PLICP current position, and save in plicp_pose
   // tf::Transform plicp_trans;
@@ -882,6 +893,11 @@ void SlamGMapping::laserCallback(const sensor_msgs::LaserScan::ConstPtr& scan, c
           return;
       }
 
+      // last_odom_pose.x = 0;
+      // last_odom_pose.y = 0;
+      // last_odom_pose.theta = 0;
+
+
       input_.laser[0] = 0.0;
       input_.laser[1] = 0.0;
       input_.laser[2] = 0.0;
@@ -934,6 +950,8 @@ void SlamGMapping::laserCallback(const sensor_msgs::LaserScan::ConstPtr& scan, c
       map_to_odom_ = (odom_to_laser * laser_to_map).inverse();
       map_to_odom_mutex_.unlock();
 
+      // last_odom_pose = odom_pose;
+      
       // map update will follow map_update_interval_ this parameter
       if(!got_map_ || (scan->header.stamp - last_map_update) > map_update_interval_)
       {
@@ -977,6 +995,10 @@ void SlamGMapping::laserCallback(const sensor_msgs::LaserScan::ConstPtr& scan, c
         InitICPParams();
         CreateCache(scan);
         LaserScanToLDP(scan, prev_ldp_scan_);
+
+        // plicp_last_predict.x = 0.0;
+        // plicp_last_predict.y = 0.0;
+
 
         input_.laser[0] = 0.0;
         input_.laser[1] = 0.0;
@@ -1040,10 +1062,9 @@ void SlamGMapping::laserCallback(const sensor_msgs::LaserScan::ConstPtr& scan, c
         meas_ORB_pose.timestamp_ = srv.request.sec * 1000000000 + srv.request.nsec;
         meas_ORB_pose.sensor_type_ = MeasurementPackage::LASER;
 
-
         // PLICP pose part
         meas_PLICP_pose.raw_measurements_ = VectorXd(2);
-        meas_PLICP_pose.raw_measurements_ << plicp_pose.getOrigin().getX(), plicp_pose.getOrigin().getY();
+        meas_PLICP_pose.raw_measurements_ << base_in_map_.getOrigin().getX(), base_in_map_.getOrigin().getY();
         meas_PLICP_pose.timestamp_ = srv.request.sec * 1000000000 + srv.request.nsec;
         meas_PLICP_pose.sensor_type_ = MeasurementPackage::LASER;
 
@@ -1051,11 +1072,14 @@ void SlamGMapping::laserCallback(const sensor_msgs::LaserScan::ConstPtr& scan, c
         flag_orb = false;
         flag_plicp = false;
 
+        // plicp_last_predict.x = plicp_ukf.x_[0];
+        // plicp_last_predict.y = plicp_ukf.x_[1];
+
         flag_orb = orb_ukf.ProcessMeasurement(meas_ORB_pose);
         flag_plicp = plicp_ukf.ProcessMeasurement(meas_PLICP_pose);
 
         Precision_UKF_ORB(odom, srv.response.x, srv.response.y, orb_ukf.x_[0], orb_ukf.x_[1]);
-        Precision_UKF_PLICP(odom, plicp_pose.getOrigin().getX(), plicp_pose.getOrigin().getY(), plicp_ukf.x_[0], plicp_ukf.x_[1]);
+        Precision_UKF_PLICP(odom, base_in_map_.getOrigin().getX(), base_in_map_.getOrigin().getY(), plicp_ukf.x_[0], plicp_ukf.x_[1]);
 
         if (flag_orb == true && flag_plicp == true)
         {
@@ -1068,6 +1092,12 @@ void SlamGMapping::laserCallback(const sensor_msgs::LaserScan::ConstPtr& scan, c
 
         }
         
+        // if ( flag_plicp_ukf == true)
+        // {
+        //   plicp_last_predict.x = plicp_ukf.x_[0];
+        //   plicp_last_predict.y = plicp_ukf.x_[1];
+        //   flag_plicp_ukf == false;
+        // }
         // std::cerr << "aaaaaaaaaaaaaaaaaaaaaaaaaaaa" << std::endl;
         // std::cerr << odom->pose.pose.position.x << "  " << odom->pose.pose.position.y << " " << odom->pose.pose.position.z << std::endl;
         // std::cerr << plicp_pose.getOrigin().getX() << "  " << plicp_pose.getOrigin().getY() << std::endl;
@@ -1096,7 +1126,7 @@ void SlamGMapping::laserCallback(const sensor_msgs::LaserScan::ConstPtr& scan, c
         // best_pose.theta = last_odom_pose.theta + ORB_weight(2)*orb_ukf.x_[2] + PLICP_weight(2)*plicp_ukf.x_[2];
 
         // save trajectory
-        SavePosition(trajectory_PLICP, plicp_pose.getOrigin().getX(), plicp_pose.getOrigin().getY());
+        SavePosition(trajectory_PLICP, base_in_map_.getOrigin().getX(), base_in_map_.getOrigin().getY());
         SavePosition(trajectory_ORB, srv.response.x, srv.response.y);
         SavePosition(trajectory_UKF_PLICP, plicp_ukf.x_[0], plicp_ukf.x_[1]);
         SavePosition(trajectory_UKF_ORB, orb_ukf.x_[0], orb_ukf.x_[1]);
@@ -1111,7 +1141,8 @@ void SlamGMapping::laserCallback(const sensor_msgs::LaserScan::ConstPtr& scan, c
 
         // laser_to_map : lidar pose in map frame
         // odom_to_laser : lidar pose in odom frame
-        tf::Transform laser_to_map = tf::Transform(tf::createQuaternionFromRPY(0, 0, best_pose.theta), tf::Vector3(best_pose.x, best_pose.y, 0.0)).inverse();
+        tf::Transform laser_to_map = tf::Transform(tf::createQuaternionFromRPY(0, 0, tf::getYaw(base_in_map_.getRotation())), tf::Vector3(base_in_map_.getOrigin().getX(), base_in_map_.getOrigin().getY(), 0.0)).inverse();
+        // tf::Transform laser_to_map = tf::Transform(tf::createQuaternionFromRPY(0, 0, best_pose.theta), tf::Vector3(best_pose.x, best_pose.y, 0.0)).inverse();
         tf::Transform odom_to_laser = tf::Transform(tf::createQuaternionFromRPY(0, 0, odom_pose.theta), tf::Vector3(odom_pose.x, odom_pose.y, 0.0));
 
         // map_to_odom_ : compute relationship between odom frame and map frame
@@ -1574,13 +1605,25 @@ void SlamGMapping::ScanMatchWithPLICP(LDP &curr_ldp_scan, const ros::Time &time)
     GetPrediction(pr_ch_x, pr_ch_y, pr_ch_a, dt);
 
     tf::Transform prediction_change;
-    CreateTfFromXYTheta(pr_ch_x, pr_ch_y, pr_ch_a, prediction_change);
+    // CreateTfFromXYTheta(pr_ch_x, pr_ch_y, pr_ch_a, prediction_change);
 
+    ////////   use odom as the first predict
+    CreateTfFromXYTheta(odom_last.x, odom_last.y, pr_ch_a, prediction_change);
     prediction_change = prediction_change * (base_in_map_ * base_in_map_keyframe_.inverse());
 
-    input_.first_guess[0] = prediction_change.getOrigin().getX();
-    input_.first_guess[1] = prediction_change.getOrigin().getY();
+    input_.first_guess[0] = sqrt(odom_last.x*odom_last.x + odom_last.y*odom_last.y);
+    input_.first_guess[1] = 0.0;
     input_.first_guess[2] = tf::getYaw(prediction_change.getRotation());
+
+
+    //////// use UKF predict
+    // double x_change = plicp_ukf.x_[0] - plicp_last_predict.x;
+    // double y_change = plicp_ukf.x_[1] - plicp_last_predict.y;
+
+    // input_.first_guess[0] = sqrt(x_change*x_change + y_change*y_change);
+    // input_.first_guess[1] = 0.0;
+    // input_.first_guess[2] = tf::getYaw(prediction_change.getRotation());
+
 
     // If they are non-Null, free covariance gsl matrices to avoid leaking memory
     if (output_.cov_x_m)
@@ -1607,6 +1650,15 @@ void SlamGMapping::ScanMatchWithPLICP(LDP &curr_ldp_scan, const ros::Time &time)
     // 调用csm里的函数进行plicp计算帧间的匹配，输出结果保存在output里
     sm_icp(&input_, &output_);
 
+
+    // std::cerr << "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa" << std::endl;
+    // std::cerr <<  plicp_ukf.x_[0] - plicp_last_predict.x << "  " << plicp_ukf.x_[1] - plicp_last_predict.y << std::endl;
+    // std::cerr <<  plicp_ukf.x_[0] << "  " << plicp_ukf.x_[1]  << std::endl;
+    // std::cerr <<   plicp_last_predict.x << "  " <<  plicp_last_predict.y << std::endl;
+    // std::cerr <<  output_.x[0] << "  " << output_.x[1] << std::endl;
+    // std::cerr <<  x_change << "  " << y_change << std::endl;
+
+
     tf::Transform corr_ch;
 
     if (output_.valid)
@@ -1618,6 +1670,7 @@ void SlamGMapping::ScanMatchWithPLICP(LDP &curr_ldp_scan, const ros::Time &time)
         base_in_map_ = base_in_map_ * corr_ch_l;
         
         latest_velocity_.linear.x = corr_ch_l.getOrigin().getX() / dt;
+        // latest_velocity_.linear.y = corr_ch_l.getOrigin().getY() / dt;
         latest_velocity_.angular.z = tf::getYaw(corr_ch_l.getRotation()) / dt;
     }
     else
@@ -2190,7 +2243,10 @@ bool SlamGMapping::SetORBParam()
   std::ofstream fout(orb_path);
   YAML::Emitter orb_emitter;
   orb_emitter << orb_config;
-  fout << orb_emitter.c_str();
+  
+  fout << "%YAML:1.0" << endl;
+  fout << "---" << endl;
+  fout << orb_emitter.c_str() << endl;
   fout.close();
   return true;
 }
@@ -2368,7 +2424,9 @@ bool SlamGMapping::SetPLICPParam()
   std::ofstream fout(plicp_path);
   YAML::Emitter plicp_emitter;
   plicp_emitter << plicp_config;
-  fout << plicp_emitter.c_str();
+  fout << "%YAML:1.0" << endl;
+  fout << "---" << endl;
+  fout << plicp_emitter.c_str() << endl;
   fout.close();
   return true;
 }
@@ -2562,7 +2620,9 @@ bool SlamGMapping::SetUKFORBParam()
   std::ofstream fout(my_path);
   YAML::Emitter orb_emitter;
   orb_emitter << orb_config;
-  fout << orb_emitter.c_str();
+  fout << "%YAML:1.0" << endl;
+  fout << "---" << endl;
+  fout << orb_emitter.c_str() << endl;
   fout.close();
   return true; 
 }
@@ -2753,7 +2813,9 @@ bool SlamGMapping::SetUKFPLICPParam()
   std::ofstream fout(my_path);
   YAML::Emitter plicp_emitter;
   plicp_emitter << plicp_config;
-  fout << plicp_emitter.c_str();
+  fout << "%YAML:1.0" << endl;
+  fout << "---" << endl;
+  fout << plicp_emitter.c_str() << endl;
   fout.close();
   return true;
 }

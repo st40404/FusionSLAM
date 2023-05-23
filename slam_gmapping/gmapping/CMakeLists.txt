@@ -16,7 +16,8 @@ find_package(yaml-cpp REQUIRED)
 # find Python project
 find_package(Python2 COMPONENTS Development NumPy)
 
-# add csm pkg
+
+# add csm, python2, pcl pkg
 include_directories(${Boost_INCLUDE_DIRS} ${catkin_INCLUDE_DIRS} ${csm_INCLUDE_DIRS} ${Python2_INCLUDE_DIRS})
 link_directories(${csm_LIBRARY_DIRS} ${Python2_INCLUDE_DIRS})
 
@@ -25,7 +26,7 @@ include_directories(src
         /usr/local/include/
         /usr/include/python2.7/
 )
-
+add_definitions(${PCL_DEFINITIONS})
 catkin_package(INCLUDE_DIRS include)
 
 add_executable(slam_gmapping src/slam_gmapping.cpp src/main.cpp src/ukf.cpp src/tools.cpp)

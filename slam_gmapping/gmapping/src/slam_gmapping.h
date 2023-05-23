@@ -66,7 +66,6 @@
 // use matplotlibcpp to draw trajectory
 #include "matplotlibcpp.h"
 
-
 // add UKF library
 // #include "Eigen/Dense"
 // #include "ukf.h"
@@ -124,8 +123,8 @@ class SlamGMapping
     tf::Transform base_in_map_;           // base_link在map坐标系下的坐标
     tf::Transform base_in_map_keyframe_;  // base_link在map坐标系下的keyframe的坐标
 
-    tf::Transform base_to_laser_;    
-    tf::Transform laser_to_base_; 
+    tf::Transform base_to_laser_;
+    tf::Transform laser_to_base_;
 
     // csm
     sm_params input_;
@@ -133,7 +132,7 @@ class SlamGMapping
     LDP prev_ldp_scan_;
 
     // change method : 0 = gmapping, 1 = PLICP, 2 = PLICP+ORB
-    int mymethod = 1;
+    int mymethod = 2;
 
     // initialize PLICP parameters
     void InitICPParams();
@@ -171,6 +170,11 @@ class SlamGMapping
     // set two Unscented-Kalman-Filter of ORB and PLICP
     UKF orb_ukf;
     UKF plicp_ukf;
+
+    GMapping::OrientedPoint odom_last;
+    // plicp last period predict by UKF
+    // GMapping::OrientedPoint plicp_last_predict;
+
 
     // save each model's residual
     void SaveResidual();
@@ -284,6 +288,7 @@ class SlamGMapping
     std::string  log_path;
     std::string  plicp_path;
     std::string  orb_path;
+    // bool flag_plicp_ukf = true;
     
     bool first_time = true;
   private:
