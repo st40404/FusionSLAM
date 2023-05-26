@@ -206,10 +206,23 @@ void ImageGrabber::callback()
 {
     // CurrentFrame = mpSLAM->GetmpTracker();
     CurrentDepth = mpSLAM->GetmvDepth();
-    CurrentPose = mpSLAM->Getpose();
+    // this get each frame's pose, there have more pose are same
+    // CurrentPose = mpSLAM->Getpose();
+    // this get currence pose, there have less pose are same
+    CurrentPose = mpSLAM->Getpose_();
     CurrentLocate = mpSLAM->GetPoseInverse();
-    
-    // CurrentPose = mpSLAM->TrackRGBD();
+
+    // std::cerr << "aaaaaaaaaaaaaaaaaaaaaaaaaa" << std::endl;
+    // std::cerr << CurrentPose.at<float>(0, 3) << "   " << CurrentPose.at<float>(1, 3) << std::endl;
+    // std::cerr << CurrentLocate.at<float>(0, 3) << "   " << CurrentLocate.at<float>(1, 3) << std::endl;
+
+    // cv::Mat Rwc(3,3,CV_32F);
+    // cv::Mat twc(3,1,CV_32F);
+    // Rwc = CurrentPose.rowRange(0,3).colRange(0,3).t();
+    // twc = -Rwc*CurrentPose.rowRange(0,3).col(3);
+
+    // std::cerr << twc.at<float>(0, 0) << "   " << CurrentLocate.at<float>(0, 1) << std::endl;
+
 }
 
 // publish point clouds
@@ -269,29 +282,45 @@ void ImageGrabber::PublishCamPose()
 
     /////   thesis    //////
 
+    cv::Mat Rwc(3,3,CV_32F);
+    cv::Mat twc(3,1,CV_32F);
+    Rwc = CurrentPose.rowRange(0,3).colRange(0,3).t();
+    twc = -Rwc*CurrentPose.rowRange(0,3).col(3);
+
+    float angularZ = atan( Rwc.at<float>(0, 2)/Rwc.at<float>(2, 2) ) * 180.0 / PI;
+
+    if ( Rwc.at<float>(0, 2) > 0 &&  Rwc.at<float>(2, 2) > 0 )
+        angularZ = angularZ ;
+
+    else if ( Rwc.at<float>(0, 2) > 0 &&  Rwc.at<float>(2, 2) < 0 )
+        angularZ = 180 + angularZ ;
+
+    else if ( Rwc.at<float>(0, 2) < 0 &&  Rwc.at<float>(2, 2) < 0)
+        angularZ = 180 + angularZ ;
+
+    else if ( Rwc.at<float>(0, 2) < 0 &&  Rwc.at<float>(2, 2) > 0 )
+        angularZ = angularZ ;
+
+
+
     // my opinion: this part change camera coordinate into camera frame
     // but I use extrinsic matrix transform, so I don't need to change to camera frame
     // cv::Mat Rwc = CurrentPose.rowRange(0,3).colRange(0,3).t(); // Rotation information
     // cv::Mat twc = -Rwc*CurrentPose.rowRange(0,3).col(3); // translation information
 
-    float angularZ = atan( CurrentPose.at<float>(0, 2)/CurrentPose.at<float>(2, 2) ) * 180.0 / PI;
+    // float angularZ = atan( CurrentPose.at<float>(0, 2)/CurrentPose.at<float>(2, 2) ) * 180.0 / PI;
 
-    if ( CurrentPose.at<float>(0, 2) > 0 &&  CurrentPose.at<float>(2, 2) > 0 )
-        angularZ = angularZ ;
+    // if ( CurrentPose.at<float>(0, 2) > 0 &&  CurrentPose.at<float>(2, 2) > 0 )
+    //     angularZ = angularZ ;
 
-    else if ( CurrentPose.at<float>(0, 2) > 0 &&  CurrentPose.at<float>(2, 2) < 0 )
-        angularZ = 180 + angularZ ;
+    // else if ( CurrentPose.at<float>(0, 2) > 0 &&  CurrentPose.at<float>(2, 2) < 0 )
+    //     angularZ = 180 + angularZ ;
 
-    else if ( CurrentPose.at<float>(0, 2) < 0 &&  CurrentPose.at<float>(2, 2) < 0)
-        angularZ = 180 + angularZ ;
+    // else if ( CurrentPose.at<float>(0, 2) < 0 &&  CurrentPose.at<float>(2, 2) < 0)
+    //     angularZ = 180 + angularZ ;
 
-    else if ( CurrentPose.at<float>(0, 2) < 0 &&  CurrentPose.at<float>(2, 2) > 0 )
-        angularZ = angularZ ;
-
-    // if ( angularZ > 180 )
-    //     angularZ -= 360;
-    // else if ( angularZ < -180 )
-    //     angularZ += 360;
+    // else if ( CurrentPose.at<float>(0, 2) < 0 &&  CurrentPose.at<float>(2, 2) > 0 )
+    //     angularZ = angularZ ;
 
 
     geometry_msgs::PointStamped msg;
@@ -325,9 +354,25 @@ void ImageGrabber::PublishCamPose()
 
         // msg.header.stamp = ros::Time::now();
         msg.header.stamp = current_lidar_time_;
+        
+        // bookstore
+        // msg.point.x = CurrentLocate.at<float>(2, 3) - 3;
+        // msg.point.y = -1*CurrentLocate.at<float>(0, 3) + 5;
+        // msg.point.z = angularZ / 180.0 * PI;
 
-        msg.point.x = CurrentLocate.at<float>(2, 3) - 3;
-        msg.point.y = -1*CurrentLocate.at<float>(0, 3) + 5;
+        // small warehouse
+        // msg.point.x = CurrentLocate.at<float>(2, 3) - 3.8;
+        // msg.point.y = -1*CurrentLocate.at<float>(0, 3) + 5.5;
+        // msg.point.z = angularZ / 180.0 * PI;
+
+        // bookstore
+        // msg.point.x = twc.at<float>(2) - 3;
+        // msg.point.y = -1*twc.at<float>(0) + 5;
+        // msg.point.z = angularZ / 180.0 * PI;
+
+        // small warehouse
+        msg.point.x = twc.at<float>(2) - 3.8;
+        msg.point.y = -1*twc.at<float>(0) + 5.5;
         msg.point.z = angularZ / 180.0 * PI;
     }
 

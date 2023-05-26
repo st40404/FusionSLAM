@@ -225,6 +225,12 @@ void MapDrawer::SetCurrentCameraPose(const cv::Mat &Tcw)
     mCameraPose = Tcw.clone();
 }
 
+cv::Mat MapDrawer::GetCurrentPose()
+{
+    unique_lock<mutex> lock(mMutexCamera);
+    return mCameraPose.clone();
+}
+
 void MapDrawer::GetCurrentOpenGLCameraMatrix(pangolin::OpenGlMatrix &M)
 {
     if(!mCameraPose.empty())

@@ -268,6 +268,9 @@ class SlamGMapping
     bool KillTrigger(   all_process::Trigger::Request  &req,
                         all_process::Trigger::Response &res);
 
+    // add TerminateTrigger function when termicate command was trigger
+    void TerminateTrigger();
+
     // in tuning process, set and save param in yaml
     bool SetORBParam();
     bool SetPLICPParam();
@@ -277,7 +280,7 @@ class SlamGMapping
 
     bool SetHypothesisParam();
 
-    void SavePosition(std::vector<double>& container, double x, double y);
+    void SavePosition(std::vector<double>& container, double x, double y, double current_time);
     std::pair<std::vector<double>, std::vector<double>> GetPoints(std::vector<double> container);
     void SaveTrajectoryGraph();
 
@@ -289,6 +292,10 @@ class SlamGMapping
     std::string  plicp_path;
     std::string  orb_path;
     // bool flag_plicp_ukf = true;
+
+    double first_sec;
+    double first_nsec;
+    
     
     bool first_time = true;
   private:

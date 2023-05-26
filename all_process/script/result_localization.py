@@ -269,9 +269,13 @@ if __name__=='__main__':
     # orb = Result('/home/ron/work/src/all_process/data/Second_Full_map_ORB_PLICP/ORB')
 
     # orb = Result('/home/ron/work/src/all_process/data/UKF_Third_tune/ORB/ORB')
-    orb = Result('/home/ron/work/src/all_process/data/UKF_Third_tune/ORB/ORB_odom')
+    # orb = Result('/home/ron/work/src/all_process/data/UKF_Third_tune/ORB/ORB_odom')
     # orb = Result('/home/ron/work/src/all_process/data/UKF_Third_tune/PLICP/PLICP')
     # orb = Result('/home/ron/work/src/all_process/data/UKF_Third_tune/PLICP/PLICP_odom')
+
+
+    # orb = Result('/home/ron/work/src/all_process/data/Third_Full_map_ORB_PLICP/ORB')
+    orb = Result('/home/ron/work/src/all_process/data/Third_Full_map_ORB_PLICP/PLICP')
 
 
     # orb = Result('/home/ron/work/src/all_process/data/Third_tune')

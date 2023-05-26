@@ -44,6 +44,9 @@ main(int argc, char** argv)
 
   ros::spin();
 
+  // use for select dateset of MSE and trajectory
+  gn.TerminateTrigger();
+
   return(0);
 
 

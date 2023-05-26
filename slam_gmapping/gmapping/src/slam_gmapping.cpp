@@ -1028,6 +1028,9 @@ void SlamGMapping::laserCallback(const sensor_msgs::LaserScan::ConstPtr& scan, c
         got_first_scan_ = orb_ukf.ProcessMeasurement(meas_init_pose);
         got_first_scan_ = plicp_ukf.ProcessMeasurement(meas_init_pose);
 
+        first_sec =  srv.request.sec;
+        first_nsec = srv.request.nsec;
+
         got_first_scan_ = true;
       }
 
@@ -1051,8 +1054,8 @@ void SlamGMapping::laserCallback(const sensor_msgs::LaserScan::ConstPtr& scan, c
         ROS_DEBUG("scan processed");
  
 
-        // Precision_ORB(odom, srv.response.x, srv.response.y);
-        // Precision_PLICP(odom, plicp_pose.getOrigin().getX(), plicp_pose.getOrigin().getY());
+        Precision_ORB(odom, srv.response.x, srv.response.y);
+        Precision_PLICP(odom, base_in_map_.getOrigin().getX(), base_in_map_.getOrigin().getY());
 
 
         // put ORB pose variety and PLICP pose variety into Unscented Kalman Filter
@@ -1125,13 +1128,24 @@ void SlamGMapping::laserCallback(const sensor_msgs::LaserScan::ConstPtr& scan, c
         best_pose.theta = odom_pose.theta;
         // best_pose.theta = last_odom_pose.theta + ORB_weight(2)*orb_ukf.x_[2] + PLICP_weight(2)*plicp_ukf.x_[2];
 
+
+        // first_sec =  srv.request.sec;
+        // first_nsec = std::cerr << srv.request.nsec;
+
+        // std::cerr << (first_sec + first_nsec/1000000000) << std::endl;
+        double now_sec = srv.request.sec;
+        double now_nsec = srv.request.nsec;
+        double current_time = now_sec + now_nsec/1000000000 - (first_sec + first_nsec/1000000000);
+        // std::cerr << (now_sec + now_nsec/1000000000) << std::endl;
+
         // save trajectory
-        SavePosition(trajectory_PLICP, base_in_map_.getOrigin().getX(), base_in_map_.getOrigin().getY());
-        SavePosition(trajectory_ORB, srv.response.x, srv.response.y);
-        SavePosition(trajectory_UKF_PLICP, plicp_ukf.x_[0], plicp_ukf.x_[1]);
-        SavePosition(trajectory_UKF_ORB, orb_ukf.x_[0], orb_ukf.x_[1]);
-        SavePosition(trajectory_real, odom->pose.pose.position.x, odom->pose.pose.position.y);
-        SavePosition(trajectory_best, best_pose.x, best_pose.y);
+        SavePosition(trajectory_PLICP, base_in_map_.getOrigin().getX(), base_in_map_.getOrigin().getY(), current_time);
+        SavePosition(trajectory_ORB, srv.response.x, srv.response.y, current_time);
+        SavePosition(trajectory_UKF_PLICP, plicp_ukf.x_[0], plicp_ukf.x_[1], current_time);
+        SavePosition(trajectory_UKF_ORB, orb_ukf.x_[0], orb_ukf.x_[1], current_time);
+        SavePosition(trajectory_real, odom->pose.pose.position.x, odom->pose.pose.position.y, current_time);
+        SavePosition(trajectory_best, best_pose.x, best_pose.y, current_time);
+
 
         Precision_Best_Pose(odom, best_pose.x, best_pose.y);
 
@@ -2025,6 +2039,26 @@ bool SlamGMapping::KillTrigger(  all_process::Trigger::Request  &req,
   }
 }
 
+void SlamGMapping::TerminateTrigger()
+{
+  SaveTrajectoryGraph();
+////////////////////////////////  update param  ////////////////////////////////////////
+  bool flag_orb = false;
+  bool flag_plicp;
+  bool flag_best;
+
+  // tuning ORB and PLICP param
+  flag_orb = SetORBParam();
+  flag_plicp = SetPLICPParam();
+
+  // tuning UKF param of ORB and PLICP
+  // flag_orb = SetUKFORBParam();
+  // flag_plicp = SetUKFPLICPParam();
+  
+  flag_best = SetHypothesisParam();
+}
+
+
 void SlamGMapping::SaveTrajectoryGraph()
 {
   //// save graph
@@ -2187,10 +2221,17 @@ bool SlamGMapping::SetORBParam()
   MSE_ORBSLAM_y = MSE_ORBSLAM_y/AE_ORBSLAM.size()*2;
   MSE_ORBSLAM_sum = MSE_ORBSLAM_sum/AE_ORBSLAM.size();
 
+  time_t     now = time(0);
+  struct tm  tstruct;
+  char       buf[80];
+  tstruct = *localtime(&now);
+  strftime(buf, sizeof(buf), "%Y_%m_%d_%X", &tstruct);
+
   std::fstream logFile_ORB;
   // Open File
   // std::string path = log_path + "/data/ORB/log_" + std::to_string(iniThFAST) + '_' + std::to_string(minThFAST) + ".txt";
-  std::string path = log_path + "/data/ORB/log_" + std::to_string(minThFAST) + '_' + std::to_string(iniThFAST) + ".txt";
+  // std::string path = log_path + "/data/ORB/log_" + std::to_string(minThFAST) + '_' + std::to_string(iniThFAST) + ".txt";
+  std::string path = log_path + "/data/ORB/log_" + std::string(buf) + ".txt";
   logFile_ORB.open( path, std::ios::app);
 
   //Write data into log file
@@ -2206,7 +2247,7 @@ bool SlamGMapping::SetORBParam()
   logFile_ORB << "\n";
   // close file stream
   logFile_ORB.close();
-
+  return true;
 
   if (nFeatures >= nFeatures_min && nFeatures < nFeatures_max)
     orb_config["ORBextractor.nFeatures"] = nFeatures + nFeatures_add;
@@ -2351,10 +2392,17 @@ bool SlamGMapping::SetPLICPParam()
   MSE_PLICP_y = MSE_PLICP_y/AE_PLICP.size()*2;
   MSE_PLICP_sum = MSE_PLICP_sum/AE_PLICP.size();
 
+  time_t     now = time(0);
+  struct tm  tstruct;
+  char       buf[80];
+  tstruct = *localtime(&now);
+  strftime(buf, sizeof(buf), "%Y_%m_%d_%X", &tstruct);
+
   std::fstream logFile_PLICP;
   // Open File
   // std::string path = log_path + "/data/PLICP/log_" + std::to_string(epsilon_theta) + '_' + std::to_string(max_correspondence_dist) + '_' + std::to_string(outliers_maxPerc) + ".txt";
-  std::string path = log_path + "/data/PLICP/log_" + std::to_string(max_correspondence_dist) + '_' + std::to_string(outliers_maxPerc) + ".txt";
+  // std::string path = log_path + "/data/PLICP/log_" + std::to_string(max_correspondence_dist) + '_' + std::to_string(outliers_maxPerc) + ".txt";
+  std::string path = log_path + "/data/PLICP/log_" + std::string(buf) + ".txt";
   logFile_PLICP.open( path, std::ios::app);
 
   //Write data into log file
@@ -2373,6 +2421,7 @@ bool SlamGMapping::SetPLICPParam()
   logFile_PLICP << "\n";
   // close file stream
   logFile_PLICP.close();
+  return true;
 
   if (max_angular_correction_deg >= deg_min && max_angular_correction_deg < deg_max)
     plicp_config["max_angular_correction_deg"] = max_angular_correction_deg + deg_add;
@@ -2822,10 +2871,24 @@ bool SlamGMapping::SetUKFPLICPParam()
 
 
 
-void SlamGMapping::SavePosition(std::vector<double>& container, double x, double y)
+void SlamGMapping::SavePosition(std::vector<double>& container, double x, double y, double current_time)
 {
+  // if (container.size() == 0)
+  // {
+  //   container.push_back(100*x);
+  //   container.push_back(100*y);
+  //   container.push_back(current_time);
+  // }
+  // else if (container[container.size()-3] != 100*x && container[container.size()-2] != 100*y)
+  // {
+  //   container.push_back(100*x);
+  //   container.push_back(100*y);
+  //   container.push_back(current_time);
+  // }
+
   container.push_back(100*x);
   container.push_back(100*y);
+  container.push_back(current_time);
 }
 
 std::pair<std::vector<double>, std::vector<double>> SlamGMapping::GetPoints(std::vector<double> container)
@@ -2833,10 +2896,10 @@ std::pair<std::vector<double>, std::vector<double>> SlamGMapping::GetPoints(std:
   std::vector<double> container_x;
   std::vector<double> container_y;
 
-  for (int i = 0 ; i < container.size()/2; i++)
+  for (int i = 0 ; i < container.size()/3; i++)
   {
-    container_x.push_back(container[2*i]);
-    container_y.push_back(container[2*i+1]);
+    container_x.push_back(container[3*i]);
+    container_y.push_back(container[3*i+1]);
   }
   return std::make_pair(container_x, container_y);
 }

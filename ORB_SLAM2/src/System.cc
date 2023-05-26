@@ -684,5 +684,11 @@ cv::Mat System::GetPoseInverse()
     return mpTracker->mCurrentFrame.mpReferenceKF->GetPoseInverse();
 }
 
+cv::Mat System::Getpose_()
+{
+    unique_lock<mutex> lock(mMutexState);
+    return mpMapDrawer->GetCurrentPose();
+}
+
 
 } //namespace ORB_SLAM

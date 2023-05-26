@@ -1,9 +1,14 @@
 %YAML:1.0
 
-max_angular_correction_deg: 135.0
+max_angular_correction_deg: 90.0
 max_linear_correction: 1.0
-max_iterations: 12
+max_iterations: 11
 epsilon_xy: 0.00001
 epsilon_theta: 0.00001
 max_correspondence_dist: 0.5
-outliers_maxPerc: 0.9
+outliers_maxPerc: 0.8
+
+
+kf_dist_linear: 0.1     # m
+kf_dist_angular: 0.1    # deg
+kf_scan_count: 3   

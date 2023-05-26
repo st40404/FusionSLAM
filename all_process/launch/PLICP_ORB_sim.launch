@@ -10,7 +10,7 @@
 
     <arg
     name="path_to_settings"
-    default="$(find orbslam2_ros)/data/TUM3_sim.yaml"
+    default="$(find orbslam2_ros)/data/sim_tune.yaml"
     />
     
     <!-- open node: orb_slam -->

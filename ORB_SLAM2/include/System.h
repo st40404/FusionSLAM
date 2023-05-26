@@ -138,6 +138,8 @@ public:
     vector<float> GetmvDepth();
     cv::Mat Getpose();
     cv::Mat GetPoseInverse();
+    cv::Mat Getpose_();
+
 
 private:
 

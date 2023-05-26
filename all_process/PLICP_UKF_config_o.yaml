@@ -2,10 +2,10 @@
 
 
 std_a_: 1.4
-std_yawdd_: 0.3
+std_yawdd_: 0.38
 std_laspx_: 0.15
-std_laspy_: 0.09
-std_beta_: 0.0
-std_alpha_: 0.1
-std_k_: 0.0
+std_laspy_: 0.11
+std_beta_: 5.0
+std_alpha_: 1.0
+std_k_: 4.0
 
