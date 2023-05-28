@@ -6,8 +6,11 @@ import yaml
 
 class Trajectory():
     def __init__(self, path, file_name, my_list):
-        self.log_path = path + "/Log/" + file_name
-        self.save_path = path + "/Generate_Graph/" + file_name
+        # self.log_path = path + "/Log/" + file_name
+        # self.save_path = path + "/Generate_Graph/" + file_name
+        self.log_path = path + "/Trajectory_log" 
+        self.save_path = path + "/Graph"
+        self.res_path = path + "/Res_"
         self.show_list = my_list
 
         self.point_plicp = []
@@ -18,6 +21,9 @@ class Trajectory():
         
         self.point_real = []
         self.point_our_method =   []
+
+        self.point_residual_orb = []
+        self.point_residual_plicp =   []
 
 # Generate_Graph
 
@@ -79,6 +85,25 @@ class Trajectory():
             self.point_our_method[0].append( _data['Trajectory']['Our_method'][3*i] )
             self.point_our_method[1].append( _data['Trajectory']['Our_method'][3*i+1] )
             self.point_our_method[2].append( _data['Trajectory']['Our_method'][3*i+2] )
+
+        ######### save ORBSLAM2 Residual of x point and time ###########
+        self.point_residual_orb.append([])
+        self.point_residual_orb.append([])
+        self.point_residual_orb.append([])
+        for i in range(0, len(_data['Residual_ORB']['x'])):
+            self.point_residual_orb[0].append( _data['Residual_ORB']['x'][i] )
+            self.point_residual_orb[1].append( _data['Residual_ORB']['y'][i] )
+            self.point_residual_orb[2].append( _data['Residual']['time'][i] )
+
+        ######### save PLICP Residual of x point and time ###########
+        self.point_residual_plicp.append([])
+        self.point_residual_plicp.append([])
+        self.point_residual_plicp.append([])
+        for i in range(0, len(_data['Residual_PLICP']['x'])):
+            self.point_residual_plicp[0].append( _data['Residual_PLICP']['x'][i] )
+            self.point_residual_plicp[1].append( _data['Residual_PLICP']['y'][i] )
+            self.point_residual_plicp[2].append( _data['Residual']['time'][i] )
+
 
 
     def SaveTrajecAll(self):
@@ -144,6 +169,20 @@ class Trajectory():
         plt.savefig(self.save_path + "_y")
         plt.clf()
 
+    def SaveResidual(self):
+        for i in self.show_list:
+            if (i == 'UKF_PLICP'):
+                self.DrawRes(self.point_residual_plicp[0], self.point_residual_plicp[2], 'PLICP', "X")
+                self.DrawRes(self.point_residual_plicp[1], self.point_residual_plicp[2], 'PLICP', "Y")
+            elif (i == 'UKF_ORB'):
+                self.DrawRes(self.point_residual_orb[0], self.point_residual_orb[2], 'ORB', "X")
+                self.DrawRes(self.point_residual_orb[1], self.point_residual_orb[2], 'ORB', "Y")
+            else:
+                self.DrawRes(self.point_residual_plicp[0], self.point_residual_plicp[2], 'PLICP', "X")
+                self.DrawRes(self.point_residual_plicp[1], self.point_residual_plicp[2], 'PLICP', "Y")
+                self.DrawRes(self.point_residual_orb[0], self.point_residual_orb[2], 'ORB', "X")
+                self.DrawRes(self.point_residual_orb[1], self.point_residual_orb[2], 'ORB', "Y")
+
     def DrawAll(self, _data, _color, _label):
         plt.plot(_data[0], _data[1], color = _color, linewidth ='1', label = _label)
 
@@ -153,18 +192,33 @@ class Trajectory():
     def DrawY(self, _data, _color, _label):
         plt.plot(_data[2], _data[1], color = _color, linewidth ='1', label = _label)
 
-if __name__=='__main__':
-    path = '/home/ron/work/src/all_process/data/Trajectory'
-    file_name = '2023_05_26_12:04:44'
-    all_list = ['PLICP', 'ORB', 'UKF_PLICP', 'UKF_ORB', 'real', 'Our_method']
-    # my_list = ['PLICP', 'ORB', 'real','Our_method']
-    my_list = ['PLICP', 'ORB', 'real']
-    # my_list = ['ORB']
-    # my_list = ['PLICP', 'ORB', 'UKF_PLICP', 'UKF_ORB', 'real','Our_method']
+    def DrawRes(self, x_lab, time, _label, _ylabel):
+        plt.plot(time, x_lab, color = "black", linewidth ='1', label = _label)
+        plt.xlabel('time')
+        plt.ylabel(_ylabel)
+        plt.legend(shadow=True, facecolor='ivory')
+        plt.savefig(self.res_path + _label + "_" + _ylabel)
+        plt.clf()
 
-    Tj_ = Trajectory(path, file_name, my_list)
+if __name__=='__main__':
+    # path = '/home/ron/work/src/all_process/data/Trajectory'
+    # file_name = '2023_05_26_12:04:44'
+
+    name = '2023_05_28_15:33:55'
+    path = '/home/ron/work/src/all_process/data/realistic_test/' + name
+    file_name = ''
+
+    all_list = ['PLICP', 'ORB', 'UKF_PLICP', 'UKF_ORB', 'real', 'Our_method']
+    # show_list = ['PLICP', 'ORB', 'real','Our_method']
+    # show_list = ['PLICP', 'ORB']
+    show_list = ['PLICP', 'ORB', 'real']
+    # show_list = ['ORB']
+    # show_list = ['PLICP', 'ORB', 'UKF_PLICP', 'UKF_ORB', 'real','Our_method']
+
+    Tj_ = Trajectory(path, file_name, show_list)
     Tj_.LoadTrajec()
     # Choose what graph you want
     Tj_.SaveTrajecAll()
     Tj_.SaveTrajecX()
     Tj_.SaveTrajecY()
+    Tj_.SaveResidual()

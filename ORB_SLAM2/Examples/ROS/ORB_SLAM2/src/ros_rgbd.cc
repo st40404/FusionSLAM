@@ -366,14 +366,14 @@ void ImageGrabber::PublishCamPose()
         // msg.point.z = angularZ / 180.0 * PI;
 
         // bookstore
-        // msg.point.x = twc.at<float>(2) - 3;
-        // msg.point.y = -1*twc.at<float>(0) + 5;
-        // msg.point.z = angularZ / 180.0 * PI;
+        msg.point.x = twc.at<float>(2) - 3;
+        msg.point.y = -1*twc.at<float>(0) + 5;
+        msg.point.z = angularZ / 180.0 * PI;
 
         // small warehouse
-        msg.point.x = twc.at<float>(2) - 3.8;
-        msg.point.y = -1*twc.at<float>(0) + 5.5;
-        msg.point.z = angularZ / 180.0 * PI;
+        // msg.point.x = twc.at<float>(2) - 3.8;
+        // msg.point.y = -1*twc.at<float>(0) + 5.5;
+        // msg.point.z = angularZ / 180.0 * PI;
     }
 
     // save every previous poase untill client send the request

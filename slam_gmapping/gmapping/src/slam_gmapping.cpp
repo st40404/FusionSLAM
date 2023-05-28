@@ -587,6 +587,7 @@ SlamGMapping::initMapper(const sensor_msgs::LaserScan& scan)
 
   // need to give plicp_pose a initialpose by laser pose 
   plicp_pose.setOrigin( tf::Vector3(initialPose.x, initialPose.y, 0.0) );
+  // plicp_pose.setOrigin( tf::Vector3(initialPose.x - laser_pose.getOrigin().getX(), initialPose.y - laser_pose.getOrigin().getY(), 0.0) );
   tf::Quaternion q;
   q.setRPY(0.0, 0.0, initialPose.theta);
   plicp_pose.setRotation(q);
@@ -992,13 +993,17 @@ void SlamGMapping::laserCallback(const sensor_msgs::LaserScan::ConstPtr& scan, c
           return;
 
         // initialize csm param
+        if (!GetBaseToLaserTf(scan->header.frame_id))
+        {
+            ROS_WARN("Skipping scan");
+            return;
+        }
         InitICPParams();
         CreateCache(scan);
         LaserScanToLDP(scan, prev_ldp_scan_);
 
         // plicp_last_predict.x = 0.0;
         // plicp_last_predict.y = 0.0;
-
 
         input_.laser[0] = 0.0;
         input_.laser[1] = 0.0;
@@ -1014,7 +1019,11 @@ void SlamGMapping::laserCallback(const sensor_msgs::LaserScan::ConstPtr& scan, c
         // UKF params
         MeasurementPackage meas_init_pose;
         meas_init_pose.raw_measurements_ = VectorXd(2);
-        meas_init_pose.raw_measurements_ << 0, 0;
+        // meas_init_pose.raw_measurements_ << 0, 0;
+        meas_init_pose.raw_measurements_ << odom_last.x, odom_last.y;
+
+        // std::cerr << "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx" << std::endl;
+        // std::cerr << odom_last.x << "   " << odom_last.y << std::endl;
 
         // meas_init_pose.raw_measurements_ = VectorXd(3);
         // meas_init_pose.raw_measurements_ << 0, 0, 0;
@@ -1053,10 +1062,12 @@ void SlamGMapping::laserCallback(const sensor_msgs::LaserScan::ConstPtr& scan, c
         // std::chrono::steady_clock::time_point start_time = std::chrono::steady_clock::now();
         ROS_DEBUG("scan processed");
  
+        double now_sec = srv.request.sec;
+        double now_nsec = srv.request.nsec;
+        double current_time = now_sec + now_nsec/1000000000 - (first_sec + first_nsec/1000000000);
 
         Precision_ORB(odom, srv.response.x, srv.response.y);
         Precision_PLICP(odom, base_in_map_.getOrigin().getX(), base_in_map_.getOrigin().getY());
-
 
         // put ORB pose variety and PLICP pose variety into Unscented Kalman Filter
         // ORB pose part
@@ -1087,11 +1098,12 @@ void SlamGMapping::laserCallback(const sensor_msgs::LaserScan::ConstPtr& scan, c
         if (flag_orb == true && flag_plicp == true)
         {
           // save the recent amount (param: residual_sum) of residual
-          SaveResidual();
+          SaveResidual(current_time);
           HypothesisTesting();
 
-          // std::cerr << ORB_weight(0) << "  " << PLICP_weight(0) << std::endl;
-          // std::cerr << ORB_weight(1) << "  " << PLICP_weight(1) << std::endl;
+          // std::cerr << "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa" << std::endl;
+          // std::cerr << "ORB_x:  "   << ORB_weight(0)   <<  "   ORB_y  "    << ORB_weight(1)   << std::endl;
+          // std::cerr << "PLICP_x:  " << PLICP_weight(0) <<  "   PLICP_y:  " << PLICP_weight(1) << std::endl;
 
         }
         
@@ -1103,7 +1115,7 @@ void SlamGMapping::laserCallback(const sensor_msgs::LaserScan::ConstPtr& scan, c
         // }
         // std::cerr << "aaaaaaaaaaaaaaaaaaaaaaaaaaaa" << std::endl;
         // std::cerr << odom->pose.pose.position.x << "  " << odom->pose.pose.position.y << " " << odom->pose.pose.position.z << std::endl;
-        // std::cerr << plicp_pose.getOrigin().getX() << "  " << plicp_pose.getOrigin().getY() << std::endl;
+        // std::cerr << base_in_map_.getOrigin().getX() << "  " << base_in_map_.getOrigin().getY() << std::endl;
         // std::cerr << plicp_ukf.x_[0] << "  " << plicp_ukf.x_[1] << std::endl;
         // std::cerr << srv.response.x << "  " << srv.response.y << " " << srv.response.z << std::endl;
         // std::cerr << orb_ukf.x_[0] << "  " << orb_ukf.x_[1] << std::endl;
@@ -1112,31 +1124,23 @@ void SlamGMapping::laserCallback(const sensor_msgs::LaserScan::ConstPtr& scan, c
 
 
 
-        // best_pose.x = plicp_pose.getOrigin().getX() + ORB_weight(0)*orb_ukf.x_[0] + PLICP_weight(0)*plicp_ukf.x_[0];
-        // best_pose.y = plicp_pose.getOrigin().getY() + ORB_weight(1)*orb_ukf.x_[1] + PLICP_weight(1)*plicp_ukf.x_[1];
+        // best_pose.x = base_in_map_.getOrigin().getX() + ORB_weight(0)*orb_ukf.x_[0] + PLICP_weight(0)*plicp_ukf.x_[0];
+        // best_pose.y = base_in_map_.getOrigin().getY() + ORB_weight(1)*orb_ukf.x_[1] + PLICP_weight(1)*plicp_ukf.x_[1];
 
         // origin PLICP and ORMSLAM2 method
-        // best_pose.x = 0.5 * plicp_pose.getOrigin().getX() + 0.5 * srv.response.x;
-        // best_pose.y = 0.5 *  plicp_pose.getOrigin().getY() + 0.5 * srv.response.y;
-        best_pose.x = 0.5 * plicp_ukf.x_[0] + 0.5 * orb_ukf.x_[0];
-        best_pose.y = 0.5 * plicp_ukf.x_[1] + 0.5 * orb_ukf.x_[1];
+        // best_pose.x = 0.5 * base_in_map_.getOrigin().getX() + 0.5 * srv.response.x;
+        // best_pose.y = 0.5 *  base_in_map_.getOrigin().getY() + 0.5 * srv.response.y;
+        // best_pose.x = 0.5 * plicp_ukf.x_[0] + 0.5 * orb_ukf.x_[0];
+        // best_pose.y = 0.5 * plicp_ukf.x_[1] + 0.5 * orb_ukf.x_[1];
 
 
 
-        // best_pose.x = ORB_weight(0)*orb_ukf.x_[0] + PLICP_weight(0)*plicp_ukf.x_[0];
-        // best_pose.y = ORB_weight(1)*orb_ukf.x_[1] + PLICP_weight(1)*plicp_ukf.x_[1];
+        best_pose.x = ORB_weight(0)*orb_ukf.x_[0] + PLICP_weight(0)*plicp_ukf.x_[0];
+        best_pose.y = ORB_weight(1)*orb_ukf.x_[1] + PLICP_weight(1)*plicp_ukf.x_[1];
         best_pose.theta = odom_pose.theta;
         // best_pose.theta = last_odom_pose.theta + ORB_weight(2)*orb_ukf.x_[2] + PLICP_weight(2)*plicp_ukf.x_[2];
 
 
-        // first_sec =  srv.request.sec;
-        // first_nsec = std::cerr << srv.request.nsec;
-
-        // std::cerr << (first_sec + first_nsec/1000000000) << std::endl;
-        double now_sec = srv.request.sec;
-        double now_nsec = srv.request.nsec;
-        double current_time = now_sec + now_nsec/1000000000 - (first_sec + first_nsec/1000000000);
-        // std::cerr << (now_sec + now_nsec/1000000000) << std::endl;
 
         // save trajectory
         SavePosition(trajectory_PLICP, base_in_map_.getOrigin().getX(), base_in_map_.getOrigin().getY(), current_time);
@@ -1566,10 +1570,10 @@ void SlamGMapping::InitICPParams()
     input_.max_correspondence_dist    = plicp_config["max_correspondence_dist"].as<float>();
     input_.outliers_maxPerc           = plicp_config["outliers_maxPerc"].as<float>();
 
-    // kf_dist_linear_    = plicp_config["kf_dist_linear"].as<double>();
-    // kf_dist_angular_   = plicp_config["kf_dist_angular"].as<double>();
-    // kf_scan_count_     = plicp_config["kf_scan_count"].as<int>();
-    // kf_dist_linear_sq_ = kf_dist_linear_ * kf_dist_linear_;
+    kf_dist_linear_    = plicp_config["kf_dist_linear"].as<double>();
+    kf_dist_angular_   = plicp_config["kf_dist_angular"].as<double>();
+    kf_scan_count_     = plicp_config["kf_scan_count"].as<int>();
+    kf_dist_linear_sq_ = kf_dist_linear_ * kf_dist_linear_;
     scan_count_ = 0;
 
 
@@ -1629,7 +1633,6 @@ void SlamGMapping::ScanMatchWithPLICP(LDP &curr_ldp_scan, const ros::Time &time)
     input_.first_guess[1] = 0.0;
     input_.first_guess[2] = tf::getYaw(prediction_change.getRotation());
 
-
     //////// use UKF predict
     // double x_change = plicp_ukf.x_[0] - plicp_last_predict.x;
     // double y_change = plicp_ukf.x_[1] - plicp_last_predict.y;
@@ -1664,15 +1667,6 @@ void SlamGMapping::ScanMatchWithPLICP(LDP &curr_ldp_scan, const ros::Time &time)
     // 调用csm里的函数进行plicp计算帧间的匹配，输出结果保存在output里
     sm_icp(&input_, &output_);
 
-
-    // std::cerr << "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa" << std::endl;
-    // std::cerr <<  plicp_ukf.x_[0] - plicp_last_predict.x << "  " << plicp_ukf.x_[1] - plicp_last_predict.y << std::endl;
-    // std::cerr <<  plicp_ukf.x_[0] << "  " << plicp_ukf.x_[1]  << std::endl;
-    // std::cerr <<   plicp_last_predict.x << "  " <<  plicp_last_predict.y << std::endl;
-    // std::cerr <<  output_.x[0] << "  " << output_.x[1] << std::endl;
-    // std::cerr <<  x_change << "  " << y_change << std::endl;
-
-
     tf::Transform corr_ch;
 
     if (output_.valid)
@@ -1680,11 +1674,18 @@ void SlamGMapping::ScanMatchWithPLICP(LDP &curr_ldp_scan, const ros::Time &time)
         // 雷达坐标系下的坐标变换
         tf::Transform corr_ch_l;
         CreateTfFromXYTheta(-1*output_.x[0], -1*output_.x[1], output_.x[2], corr_ch_l);
+        // CreateTfFromXYTheta(output_.x[0], output_.x[1], output_.x[2], corr_ch_l);
 
+        // corr_ch = base_to_laser_ * corr_ch_l * laser_to_base_;
+        // base_in_map_ = base_in_map_keyframe_ * corr_ch;
+        // latest_velocity_.linear.x = corr_ch.getOrigin().getX() / dt;
+        // latest_velocity_.angular.z = tf::getYaw(corr_ch.getRotation()) / dt;
+
+
+        // base_in_map_ = base_in_map_keyframe_ * corr_ch_l;
         base_in_map_ = base_in_map_ * corr_ch_l;
         
         latest_velocity_.linear.x = corr_ch_l.getOrigin().getX() / dt;
-        // latest_velocity_.linear.y = corr_ch_l.getOrigin().getY() / dt;
         latest_velocity_.angular.z = tf::getYaw(corr_ch_l.getRotation()) / dt;
     }
     else
@@ -1795,6 +1796,7 @@ bool SlamGMapping::GetBaseToLaserTf(const std::string &frame_id)
     base_to_laser_.setRotation(q);
 
     laser_to_base_ = base_to_laser_.inverse();
+
     return true;
 }
 
@@ -2039,24 +2041,279 @@ bool SlamGMapping::KillTrigger(  all_process::Trigger::Request  &req,
   }
 }
 
+void SlamGMapping::CheckFolder(std::string file_path)
+{
+  struct stat info;
+  if (stat(file_path.c_str(), &info) == 0 && (info.st_mode & S_IFDIR))
+      std::cout << "Folder already exists." << std::endl;
+  else
+  {
+      if (mkdir(file_path.c_str(), 0777) == 0)
+          std::cout << "Folder created successfully." << std::endl;
+      else 
+          std::cout << "Failed to create folder." << std::endl;
+  }
+}
+
 void SlamGMapping::TerminateTrigger()
 {
-  SaveTrajectoryGraph();
-////////////////////////////////  update param  ////////////////////////////////////////
-  bool flag_orb = false;
-  bool flag_plicp;
-  bool flag_best;
+  // set file name and create file whether exist
+  time_t     now = time(0);
+  struct tm  tstruct;
+  char       buf[80];
+  tstruct = *localtime(&now);
+  strftime(buf, sizeof(buf), "%Y_%m_%d_%X", &tstruct);
 
-  // tuning ORB and PLICP param
-  flag_orb = SetORBParam();
-  flag_plicp = SetPLICPParam();
+  std::string file_path = log_path + "/data/realistic_test/" + std::string(buf);
+  // std::string file_path = "/home/ron/work/src/all_process/data/realistic_test/" + std::string(buf);
+  CheckFolder(file_path);
 
-  // tuning UKF param of ORB and PLICP
-  // flag_orb = SetUKFORBParam();
-  // flag_plicp = SetUKFPLICPParam();
-  
-  flag_best = SetHypothesisParam();
+  SaveTrajectoryGraph_(file_path + "/Trajectory");
+  SaveParam(file_path + "/result");
 }
+
+void SlamGMapping::SaveParam(std::string file_path)
+{
+  std::fstream logFile_;
+  // Open File
+  std::string path = file_path + ".txt";
+  logFile_.open( path, std::ios::app);
+
+  ///////   Save ORBSLAM result   /////////////
+  // compute average error
+  float sum = 0;
+  for (int i=0; i<AE_ORBSLAM.size(); i++)
+    sum += AE_ORBSLAM[i];
+  sum = sum/AE_ORBSLAM.size();
+
+  MSE_ORBSLAM_x = MSE_ORBSLAM_x/AE_ORBSLAM.size()*2;
+  MSE_ORBSLAM_y = MSE_ORBSLAM_y/AE_ORBSLAM.size()*2;
+  MSE_ORBSLAM_sum = MSE_ORBSLAM_sum/AE_ORBSLAM.size();
+
+  //Write data into log file
+  logFile_ << "----------------------------------------------------------------" << "\n";
+  logFile_ << "----------------------------original----------------------------" << "\n";
+  logFile_ << "----------------------------------------------------------------" << "\n";
+  logFile_ << "------------------  ORBSLAM2 and ground trust  -----------------" << "\n\n";
+  logFile_ << "avg:  "   + std::to_string(sum);
+  logFile_ << "  mseX:  " + std::to_string(MSE_ORBSLAM_x);
+  logFile_ << "  mseY:  " + std::to_string(MSE_ORBSLAM_y);
+  logFile_ << "  mseS:  " + std::to_string(MSE_ORBSLAM_sum);
+  logFile_ << "\n\n";
+
+  ///////   Save PLICP result   /////////////
+  //compute average error
+  sum = 0;
+  for (int i=0; i<AE_PLICP.size(); i++)
+    sum += AE_PLICP[i];
+  sum = sum/AE_PLICP.size();
+
+  MSE_PLICP_x = MSE_PLICP_x/AE_PLICP.size()*2;
+  MSE_PLICP_y = MSE_PLICP_y/AE_PLICP.size()*2;
+  MSE_PLICP_sum = MSE_PLICP_sum/AE_PLICP.size();
+
+  //Write data into log file
+  logFile_ << "--------------------  PLICP and ground trust -------------------" << "\n\n";
+  logFile_ << "avg:  "   + std::to_string(sum);
+  logFile_ << "  mseX:  " + std::to_string(MSE_PLICP_x);
+  logFile_ << "  mseY:  " + std::to_string(MSE_PLICP_y);
+  logFile_ << "  mseS:  " + std::to_string(MSE_PLICP_sum);
+  logFile_ << "\n\n";
+
+
+  ///////   Save UKF - ORBSLAM result   /////////////
+  //compute average error
+  float sum_odom = 0;
+  sum = 0;
+  for (int i=0; i<AE_UKF_ORB.size(); i++)
+  {
+    sum_odom += AE_UKF_ORB_odom[i];
+    sum      += AE_UKF_ORB[i];
+  }
+  sum_odom = sum_odom/AE_UKF_ORB_odom.size();
+  sum      = sum/AE_UKF_ORB.size();
+
+  MSE_UKF_ORB_x = MSE_UKF_ORB_x/AE_UKF_ORB.size()*2;
+  MSE_UKF_ORB_y = MSE_UKF_ORB_y/AE_UKF_ORB.size()*2;
+  MSE_UKF_ORB_sum = MSE_UKF_ORB_sum/AE_UKF_ORB.size();
+
+  MSE_UKF_ORB_odom_x = MSE_UKF_ORB_odom_x/AE_UKF_ORB_odom.size()*2;
+  MSE_UKF_ORB_odom_y = MSE_UKF_ORB_odom_y/AE_UKF_ORB_odom.size()*2;
+  MSE_UKF_ORB_odom_sum = MSE_UKF_ORB_odom_sum/AE_UKF_ORB_odom.size();
+
+  //Write data into log file
+  logFile_ << "----------------------------------------------------------------" << "\n";
+  logFile_ << "-----------------------  UKF (ORBSLAM2)  -----------------------" << "\n";
+  logFile_ << "----------------------------------------------------------------" << "\n";
+  logFile_ << "--------------------  UKF-ORB and ORBSLAM2  --------------------" << "\n\n";
+
+  logFile_ << "avg:  "   + std::to_string(sum);
+  logFile_ << "  mseX:  " + std::to_string(MSE_UKF_ORB_x);
+  logFile_ << "  mseY:  " + std::to_string(MSE_UKF_ORB_y);
+  logFile_ << "  mseS:  " + std::to_string(MSE_UKF_ORB_sum);
+  logFile_ << "\n\n";
+
+  logFile_ << "------------------  UKF-ORB and ground trust  ------------------" << "\n\n";
+  logFile_ << "avg:  "   + std::to_string(sum);
+  logFile_ << "  mseX:  " + std::to_string(MSE_UKF_ORB_odom_x);
+  logFile_ << "  mseY:  " + std::to_string(MSE_UKF_ORB_odom_y);
+  logFile_ << "  mseS:  " + std::to_string(MSE_UKF_ORB_odom_sum);
+  logFile_ << "\n\n";
+
+  ///////   Save UKF - PLICP result   /////////////
+  //compute average error
+  sum_odom = 0, sum = 0;
+  for (int i=0; i<AE_UKF_PLICP.size(); i++)
+  {
+    sum_odom += AE_UKF_PLICP_odom[i];
+    sum      += AE_UKF_PLICP[i];
+  }
+  sum_odom = sum_odom/AE_UKF_PLICP_odom.size();
+  sum      = sum/AE_UKF_PLICP.size();
+
+  MSE_UKF_PLICP_x = MSE_UKF_PLICP_x/AE_UKF_PLICP.size()*2;
+  MSE_UKF_PLICP_y = MSE_UKF_PLICP_y/AE_UKF_PLICP.size()*2;
+  MSE_UKF_PLICP_sum = MSE_UKF_PLICP_sum/AE_UKF_PLICP.size();
+
+  MSE_UKF_PLICP_odom_x = MSE_UKF_PLICP_odom_x/AE_UKF_PLICP_odom.size()*2;
+  MSE_UKF_PLICP_odom_y = MSE_UKF_PLICP_odom_y/AE_UKF_PLICP_odom.size()*2;
+  MSE_UKF_PLICP_odom_sum = MSE_UKF_PLICP_odom_sum/AE_UKF_PLICP_odom.size();
+
+  //Write data into log file
+  logFile_ << "----------------------------------------------------------------" << "\n";
+  logFile_ << "------------------------  UKF (PLICP)  -------------------------" << "\n";
+  logFile_ << "----------------------------------------------------------------" << "\n";
+  logFile_ << "--------------------  UKF-PLICP and PLICP  ---------------------" << "\n\n";
+
+  logFile_ << "avg:  "   + std::to_string(sum);
+  logFile_ << "  mseX  :  " + std::to_string(MSE_UKF_PLICP_x);
+  logFile_ << "  mseY  :  " + std::to_string(MSE_UKF_PLICP_y);
+  logFile_ << "  mseS  :  " + std::to_string(MSE_UKF_PLICP_sum);
+  logFile_ << "\n\n";
+
+  //Write data into log file
+  logFile_ << "-----------------  UKF-PLICP and ground trust  -----------------" << "\n\n";
+  logFile_ << "avg:  "   + std::to_string(sum);
+  logFile_ << "  mseX  :  " + std::to_string(MSE_UKF_PLICP_odom_x);
+  logFile_ << "  mseY  :  " + std::to_string(MSE_UKF_PLICP_odom_y);
+  logFile_ << "  mseS  :  " + std::to_string(MSE_UKF_PLICP_odom_sum);
+  logFile_ << "\n\n";
+
+  ///////   Save our method result   /////////////
+  //compute average error
+  sum_odom = 0;
+
+  for (int i=0; i<AE_best_odom.size(); i++)
+    sum_odom += AE_best_odom[i];
+
+  sum_odom = sum_odom/AE_best_odom.size();
+
+  MSE_best_odom_x = MSE_best_odom_x/AE_best_odom.size()*2;
+  MSE_best_odom_y = MSE_best_odom_y/AE_best_odom.size()*2;
+  MSE_best_odom_sum = MSE_best_odom_sum/AE_best_odom.size();
+
+  //Write data into log file
+  logFile_ << "----------------------------------------------------------------" << "\n";
+  logFile_ << "------------------------  Our Method  --------------------------" << "\n";
+  logFile_ << "----------------------------------------------------------------" << "\n\n";
+  logFile_ << "avg:  "    + std::to_string(sum_odom);
+  logFile_ << "  mseX:  " + std::to_string(MSE_best_odom_x);
+  logFile_ << "  mseY:  " + std::to_string(MSE_best_odom_y);
+  logFile_ << "  mseS:  " + std::to_string(MSE_best_odom_sum);
+  logFile_ << "\n";
+
+  // close file stream
+  logFile_.close();  
+}
+
+void SlamGMapping::SaveTrajectoryGraph_(std::string path)
+{
+  //// save graph
+  std::pair<std::vector<double>, std::vector<double>> points_PLICP = GetPoints(trajectory_PLICP);
+  plt::plot(points_PLICP.first, points_PLICP.second, "m", {{"label", "PLICP"}});
+
+  std::pair<std::vector<double>, std::vector<double>> points_ORB = GetPoints(trajectory_ORB);
+  plt::plot(points_ORB.first, points_ORB.second, "b", {{"label", "ORB"}});
+
+  std::pair<std::vector<double>, std::vector<double>> points_UKF_PLICP = GetPoints(trajectory_UKF_PLICP);
+  plt::plot(points_UKF_PLICP.first, points_UKF_PLICP.second, "g", {{"label", "UKF_PLICP"}});
+
+  std::pair<std::vector<double>, std::vector<double>> points_UKF_ORB = GetPoints(trajectory_UKF_ORB);
+  plt::plot(points_UKF_ORB.first, points_UKF_ORB.second, "y", {{"label", "UKF_ORB"}});
+
+  std::pair<std::vector<double>, std::vector<double>> points_real = GetPoints(trajectory_real);
+  plt::plot(points_real.first, points_real.second, "k", {{"label", "real"}});
+
+  std::pair<std::vector<double>, std::vector<double>> points_best = GetPoints(trajectory_best);
+  plt::plot(points_best.first, points_best.second, "r", {{"label", "Our_method"}});
+
+  // set lable
+  plt::xlabel("x (cm)");
+  plt::ylabel("y (cm)");
+  // enable legend.
+  plt::legend();
+  std::string graph_path = path + "_graph.pdf";
+  plt::title("Trajectory");
+  plt::savefig(graph_path);
+
+  // save log
+  YAML::Node config;
+
+  YAML::Node orb_config = YAML::LoadFile(orb_path);
+  config["ORB"]["nFeatures"]   = orb_config["ORBextractor.nFeatures"].as<int>();
+  config["ORB"]["scaleFactor"] = orb_config["ORBextractor.scaleFactor"].as<float>();
+  config["ORB"]["nLevels"]     = orb_config["ORBextractor.nLevels"].as<int>();
+  config["ORB"]["iniThFAST"]   = orb_config["ORBextractor.iniThFAST"].as<int>();
+  config["ORB"]["minThFAST"]   = orb_config["ORBextractor.minThFAST"].as<int>();
+
+  YAML::Node plicp_config = YAML::LoadFile(plicp_path);
+  config["PLICP"]["max_angular_correction_deg"] = plicp_config["max_angular_correction_deg"].as<float>();
+  config["PLICP"]["max_linear_correction"]      = plicp_config["max_linear_correction"].as<float>();
+  config["PLICP"]["max_iterations"]             = plicp_config["max_iterations"].as<int>();
+  config["PLICP"]["epsilon_xy"]                 = plicp_config["epsilon_xy"].as<float>();
+  config["PLICP"]["epsilon_theta"]              = plicp_config["epsilon_theta"].as<float>();
+  config["PLICP"]["max_correspondence_dist"]    = plicp_config["max_correspondence_dist"].as<float>();
+  config["PLICP"]["outliers_maxPerc"]           = plicp_config["outliers_maxPerc"].as<float>();
+
+  std::string ukf_orb_path = log_path + "/ORB_UKF_config.yaml";
+  YAML::Node ukf_orb_config = YAML::LoadFile(ukf_orb_path);
+  config["ORB_UKF"]["std_a_"]     = ukf_orb_config["std_a_"].as<double>();
+  config["ORB_UKF"]["std_yawdd_"] = ukf_orb_config["std_yawdd_"].as<double>();
+  config["ORB_UKF"]["std_laspx_"] = ukf_orb_config["std_laspx_"].as<double>();
+  config["ORB_UKF"]["std_laspy_"] = ukf_orb_config["std_laspy_"].as<double>();
+  config["ORB_UKF"]["std_beta_"]  = ukf_orb_config["std_beta_"].as<double>();
+  config["ORB_UKF"]["std_alpha_"] = ukf_orb_config["std_alpha_"].as<double>();
+  config["ORB_UKF"]["std_k_"]     = ukf_orb_config["std_k_"].as<double>();
+
+  std::string ukf_plicp_path = log_path + "/PLICP_UKF_config.yaml";
+  YAML::Node ukf_plicp_config = YAML::LoadFile(ukf_plicp_path);
+  config["PLICP_UKF"]["std_a_"]     = ukf_plicp_config["std_a_"].as<double>();
+  config["PLICP_UKF"]["std_yawdd_"] = ukf_plicp_config["std_yawdd_"].as<double>();
+  config["PLICP_UKF"]["std_laspx_"] = ukf_plicp_config["std_laspx_"].as<double>();
+  config["PLICP_UKF"]["std_laspy_"] = ukf_plicp_config["std_laspy_"].as<double>();
+  config["PLICP_UKF"]["std_beta_"]  = ukf_plicp_config["std_beta_"].as<double>();
+  config["PLICP_UKF"]["std_alpha_"] = ukf_plicp_config["std_alpha_"].as<double>();
+  config["PLICP_UKF"]["std_k_"]     = ukf_plicp_config["std_k_"].as<double>();
+
+  config["Trajectory"]["PLICP"] = trajectory_PLICP;
+  config["Trajectory"]["ORB"] = trajectory_ORB;
+  config["Trajectory"]["UKF_PLICP"] = trajectory_UKF_PLICP;
+  config["Trajectory"]["UKF_ORB"] = trajectory_UKF_ORB;
+  config["Trajectory"]["real"] = trajectory_real;
+  config["Trajectory"]["Our_method"] = trajectory_best;
+
+  config["Residual_ORB"]["x"] = ORB_res_all_x;
+  config["Residual_ORB"]["y"] = ORB_res_all_y;
+
+  config["Residual_PLICP"]["x"] = PLICP_res_all_x;
+  config["Residual_PLICP"]["y"] = PLICP_res_all_y;
+  config["Residual"]["time"] = res_time_stamp;
+
+  std::string graph_log_path = path + "_log.yaml";
+  std::ofstream fout(graph_log_path);
+  fout << config;
+}
+
 
 
 void SlamGMapping::SaveTrajectoryGraph()
@@ -2985,7 +3242,7 @@ bool SlamGMapping::SetHypothesisParam()
 }
 
 
-void SlamGMapping::SaveResidual()
+void SlamGMapping::SaveResidual(double curr_time)
 {
   if (sum_res < residual_sum)
     sum_res++;
@@ -2995,6 +3252,12 @@ void SlamGMapping::SaveResidual()
 
   PLICP_res(count_res, 0) = plicp_ukf.y_(0);
   PLICP_res(count_res, 1) = plicp_ukf.y_(1);
+
+  ORB_res_all_x.push_back(orb_ukf.y_(0));
+  ORB_res_all_y.push_back(orb_ukf.y_(1));
+  PLICP_res_all_x.push_back(plicp_ukf.y_(0));
+  PLICP_res_all_y.push_back(plicp_ukf.y_(1));
+  res_time_stamp.push_back(curr_time);
 
   count_res++;
 

@@ -81,6 +81,10 @@
 #include <geometry_msgs/TwistStamped.h>
 #include <geometry_msgs/TransformStamped.h>
 
+// generate new folder
+#include <sys/stat.h>
+#include <sys/types.h>
+
 
 namespace plt = matplotlibcpp;
 
@@ -149,7 +153,7 @@ class SlamGMapping
     bool NewKeyframeNeeded(const tf::Transform &d);
     bool GetBaseToLaserTf(const std::string &frame_id);
 
-
+    //
 
     // subscribe ORB pose
     ros::Subscriber sub;
@@ -165,6 +169,7 @@ class SlamGMapping
     // GMapping::OrientedPoint last_odom_pose;
     // GMapping::OrientedPoint last_ORB_pose;
     tf::Transform plicp_pose;
+    tf::Transform base_to_laser;
 
 
     // set two Unscented-Kalman-Filter of ORB and PLICP
@@ -177,13 +182,20 @@ class SlamGMapping
 
 
     // save each model's residual
-    void SaveResidual();
+    void SaveResidual(double curr_time);
     //this parameter control used how many recent data to compute hypothesis
     int residual_sum;
 
     // container to save recent residual value (size: residual_sum * 2)
     MatrixXd ORB_res;
     MatrixXd PLICP_res;
+
+    // container to save all residual value
+    std::vector<double> ORB_res_all_x;
+    std::vector<double> ORB_res_all_y;
+    std::vector<double> PLICP_res_all_x;
+    std::vector<double> PLICP_res_all_y;
+    std::vector<double> res_time_stamp;
 
     // the current counter of both residual saving matrix
     int count_res;
@@ -283,6 +295,12 @@ class SlamGMapping
     void SavePosition(std::vector<double>& container, double x, double y, double current_time);
     std::pair<std::vector<double>, std::vector<double>> GetPoints(std::vector<double> container);
     void SaveTrajectoryGraph();
+
+    void SaveTrajectoryGraph_(std::string path);
+    void CheckFolder(std::string file_path);
+    void SaveParam(std::string file_path);
+
+
 
     //define config path
     std::string  config_path = "/home/ron/work/src/all_process/config.yaml";
