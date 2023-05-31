@@ -150,9 +150,10 @@ bool UKF::ProcessMeasurement(MeasurementPackage &meas_package) {
     //Account for small values in intial measurements
     double px = meas_package.raw_measurements_[0];
     double py = meas_package.raw_measurements_[1];
+
     // double pt = meas_package.raw_measurements_[2];
-    x_(0) = (px > EPS) ? px : EPS;
-    x_(1) = (py > EPS) ? py : EPS;
+    x_(0) = (abs(px) > EPS) ? px : EPS;
+    x_(1) = (abs(py) > EPS) ? py : EPS;
     // x_(2) = (pt > EPS) ? pt : EPS;
 
     //Capture the timestamp

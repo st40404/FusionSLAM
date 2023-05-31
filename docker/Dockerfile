@@ -88,9 +88,9 @@ RUN apt-get update \
     && rm -rf /var/lib/apt/lists
     
 RUN apt-get update \
-    # && apt-get install -y ros-groovy-openslam-gmapping \
-    # install gmapping dependency
-    # && apt-get install -y ros-melodic-slam-gmapping \
+    # && add-apt-repository ppa:deadsnakes/ppa \
+    # && apt-get update -qq \
+    # && sudo apt-get install python3.9 --allow-unauthenticated -y \
     && apt-get clean \
     && rm -rf /var/lib/apt/lists
 

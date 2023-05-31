@@ -598,8 +598,13 @@ SlamGMapping::initMapper(const sensor_msgs::LaserScan& scan)
   // use for PLICP first guass by odometry
   odom_last.x = initialPose.x;
   odom_last.y = initialPose.y;
-  /////////////////////////////////////////////////////////////////////////
 
+  // save odom initialize pose
+  odom_init.x = initialPose.x;
+  odom_init.y = initialPose.y;
+  
+
+  /////////////////////////////////////////////////////////////////////////
 
   gsp_->setMatchingParameters(maxUrange_, maxRange_, sigma_,
                               kernelSize_, lstep_, astep_, iterations_,
@@ -898,13 +903,15 @@ void SlamGMapping::laserCallback(const sensor_msgs::LaserScan::ConstPtr& scan, c
       // last_odom_pose.y = 0;
       // last_odom_pose.theta = 0;
 
+      ORB_crash   = false;
+      PLICP_crash = false;
 
       input_.laser[0] = 0.0;
       input_.laser[1] = 0.0;
       input_.laser[2] = 0.0;
 
       // Initialize output_ vectors as Null for error-checking
-      output_.cov_x_m = 0;
+      output_.cov_x_m  = 0;
       output_.dx_dy1_m = 0;
       output_.dx_dy2_m = 0;
 
@@ -979,7 +986,6 @@ void SlamGMapping::laserCallback(const sensor_msgs::LaserScan::ConstPtr& scan, c
     if (CamPose_client.call(srv))
     {
       // ROS_INFO("Get pose : x : %lf, y : %lf, z : %lf", srv.response.x, srv.response.y, srv.response.z);
-
       laser_count_++;
       if ((laser_count_ % throttle_scans_) != 0)
         return;
@@ -1022,9 +1028,6 @@ void SlamGMapping::laserCallback(const sensor_msgs::LaserScan::ConstPtr& scan, c
         // meas_init_pose.raw_measurements_ << 0, 0;
         meas_init_pose.raw_measurements_ << odom_last.x, odom_last.y;
 
-        // std::cerr << "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx" << std::endl;
-        // std::cerr << odom_last.x << "   " << odom_last.y << std::endl;
-
         // meas_init_pose.raw_measurements_ = VectorXd(3);
         // meas_init_pose.raw_measurements_ << 0, 0, 0;
         meas_init_pose.timestamp_ = srv.request.sec * 1000000000 + srv.request.nsec;
@@ -1049,10 +1052,15 @@ void SlamGMapping::laserCallback(const sensor_msgs::LaserScan::ConstPtr& scan, c
 
       // to save the best variety of Agv 
       GMapping::OrientedPoint best_pose;
+      // to save the variety of Agv by half weight 
+      GMapping::OrientedPoint each_half_pose;
 
       // save ORB and PLICP pose, rotate, timestamp
       MeasurementPackage meas_ORB_pose;
       MeasurementPackage meas_PLICP_pose;
+
+      srv.response.x += odom_init.x;
+      srv.response.y += odom_init.y;
 
       if (ScanCallback(scan, odom_pose))
       {
@@ -1104,7 +1112,6 @@ void SlamGMapping::laserCallback(const sensor_msgs::LaserScan::ConstPtr& scan, c
           // std::cerr << "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa" << std::endl;
           // std::cerr << "ORB_x:  "   << ORB_weight(0)   <<  "   ORB_y  "    << ORB_weight(1)   << std::endl;
           // std::cerr << "PLICP_x:  " << PLICP_weight(0) <<  "   PLICP_y:  " << PLICP_weight(1) << std::endl;
-
         }
         
         // if ( flag_plicp_ukf == true)
@@ -1140,7 +1147,13 @@ void SlamGMapping::laserCallback(const sensor_msgs::LaserScan::ConstPtr& scan, c
         best_pose.theta = odom_pose.theta;
         // best_pose.theta = last_odom_pose.theta + ORB_weight(2)*orb_ukf.x_[2] + PLICP_weight(2)*plicp_ukf.x_[2];
 
+        // each_half_pose.x = 0.5*orb_ukf.x_[0] + 0.5*plicp_ukf.x_[0];
+        // each_half_pose.y = 0.5*orb_ukf.x_[1] + 0.5*plicp_ukf.x_[1];
+        // each_half_pose.theta = odom_pose.theta;
 
+        each_half_pose.x = 0.5*srv.response.x + 0.5*base_in_map_.getOrigin().getX();
+        each_half_pose.y = 0.5*srv.response.y + 0.5*base_in_map_.getOrigin().getY();
+        each_half_pose.theta = odom_pose.theta;
 
         // save trajectory
         SavePosition(trajectory_PLICP, base_in_map_.getOrigin().getX(), base_in_map_.getOrigin().getY(), current_time);
@@ -1149,9 +1162,11 @@ void SlamGMapping::laserCallback(const sensor_msgs::LaserScan::ConstPtr& scan, c
         SavePosition(trajectory_UKF_ORB, orb_ukf.x_[0], orb_ukf.x_[1], current_time);
         SavePosition(trajectory_real, odom->pose.pose.position.x, odom->pose.pose.position.y, current_time);
         SavePosition(trajectory_best, best_pose.x, best_pose.y, current_time);
+        SavePosition(trajectory_each_half, each_half_pose.x, each_half_pose.y, current_time);
 
 
         Precision_Best_Pose(odom, best_pose.x, best_pose.y);
+        Precision_Half_Pose(odom, each_half_pose.x, each_half_pose.y);
 
         ROS_DEBUG("new best pose: %.3f %.3f %.3f", best_pose.x, best_pose.y, odom_pose.theta);
         ROS_DEBUG("odom pose: %.3f %.3f %.3f", odom_pose.x, odom_pose.y, odom_pose.theta);
@@ -1676,6 +1691,7 @@ void SlamGMapping::ScanMatchWithPLICP(LDP &curr_ldp_scan, const ros::Time &time)
         CreateTfFromXYTheta(-1*output_.x[0], -1*output_.x[1], output_.x[2], corr_ch_l);
         // CreateTfFromXYTheta(output_.x[0], output_.x[1], output_.x[2], corr_ch_l);
 
+        // use for change the transform from laser frame to base_link frame, but have some problem
         // corr_ch = base_to_laser_ * corr_ch_l * laser_to_base_;
         // base_in_map_ = base_in_map_keyframe_ * corr_ch;
         // latest_velocity_.linear.x = corr_ch.getOrigin().getX() / dt;
@@ -2008,6 +2024,19 @@ void SlamGMapping::Precision_Best_Pose(const nav_msgs::Odometry::ConstPtr& odom,
   MSE_best_odom_sum += flag_x + flag_y;
 }
 
+void SlamGMapping::Precision_Half_Pose(const nav_msgs::Odometry::ConstPtr& odom, double x, double y)
+{
+  // compute average error and MSE between best position and Gazebo
+  AE_half_odom.push_back( abs(odom->pose.pose.position.x - x ));
+  AE_half_odom.push_back( abs(odom->pose.pose.position.y - y ));
+
+  double flag_x = pow(odom->pose.pose.position.x - x, 2);
+  double flag_y = pow(odom->pose.pose.position.y - y, 2);
+  MSE_half_odom_x   += flag_x; 
+  MSE_half_odom_y   += flag_y; 
+  MSE_half_odom_sum += flag_x + flag_y;
+}
+
 
 
 bool SlamGMapping::KillTrigger(  all_process::Trigger::Request  &req,
@@ -2070,6 +2099,31 @@ void SlamGMapping::TerminateTrigger()
 
   SaveTrajectoryGraph_(file_path + "/Trajectory");
   SaveParam(file_path + "/result");
+  CompareMSE(log_path + "/data/realistic_test/result.yaml");
+}
+
+void SlamGMapping::CompareMSE(std::string file_path)
+{
+
+  YAML::Node mse_config = YAML::LoadFile(file_path);
+
+  int my_method   = mse_config["my_method"].as<int>();
+  int half_method = mse_config["half_method"].as<int>();
+
+  if (MSE_half_odom_sum > MSE_best_odom_sum)
+    mse_config["my_method"] = my_method + 1;
+
+  else if (MSE_half_odom_sum < MSE_best_odom_sum)
+    mse_config["half_method"] = half_method + 1;
+
+  std::ofstream fout(file_path);
+  YAML::Emitter mse_emitter;
+  mse_emitter << mse_config;
+  
+  fout << "%YAML:1.0" << endl;
+  fout << "---" << endl;
+  fout << mse_emitter.c_str() << endl;
+  fout.close();
 }
 
 void SlamGMapping::SaveParam(std::string file_path)
@@ -2220,7 +2274,30 @@ void SlamGMapping::SaveParam(std::string file_path)
   logFile_ << "  mseX:  " + std::to_string(MSE_best_odom_x);
   logFile_ << "  mseY:  " + std::to_string(MSE_best_odom_y);
   logFile_ << "  mseS:  " + std::to_string(MSE_best_odom_sum);
-  logFile_ << "\n";
+  logFile_ << "\n\n";
+
+  ///////   Save half weight result   /////////////
+  //compute average error
+  sum_odom = 0;
+
+  for (int i=0; i<AE_half_odom.size(); i++)
+    sum_odom += AE_half_odom[i];
+
+  sum_odom = sum_odom/AE_half_odom.size();
+
+  MSE_half_odom_x = MSE_half_odom_x/AE_half_odom.size()*2;
+  MSE_half_odom_y = MSE_half_odom_y/AE_half_odom.size()*2;
+  MSE_half_odom_sum = MSE_half_odom_sum/AE_half_odom.size();
+
+  //Write data into log file
+  logFile_ << "----------------------------------------------------------------" << "\n";
+  logFile_ << "--------------------  Half Weight Method  ----------------------" << "\n";
+  logFile_ << "----------------------------------------------------------------" << "\n\n";
+  logFile_ << "avg:  "    + std::to_string(sum_odom);
+  logFile_ << "  mseX:  " + std::to_string(MSE_half_odom_x);
+  logFile_ << "  mseY:  " + std::to_string(MSE_half_odom_y);
+  logFile_ << "  mseS:  " + std::to_string(MSE_half_odom_sum);
+  logFile_ << "\n\n";
 
   // close file stream
   logFile_.close();  
@@ -2301,6 +2378,7 @@ void SlamGMapping::SaveTrajectoryGraph_(std::string path)
   config["Trajectory"]["UKF_ORB"] = trajectory_UKF_ORB;
   config["Trajectory"]["real"] = trajectory_real;
   config["Trajectory"]["Our_method"] = trajectory_best;
+  config["Trajectory"]["Half_w"] = trajectory_each_half;
 
   config["Residual_ORB"]["x"] = ORB_res_all_x;
   config["Residual_ORB"]["y"] = ORB_res_all_y;
@@ -2308,6 +2386,11 @@ void SlamGMapping::SaveTrajectoryGraph_(std::string path)
   config["Residual_PLICP"]["x"] = PLICP_res_all_x;
   config["Residual_PLICP"]["y"] = PLICP_res_all_y;
   config["Residual"]["time"] = res_time_stamp;
+
+  config["Weight_ORB"]["x"] = all_ORB_weight_x;
+  config["Weight_ORB"]["y"] = all_ORB_weight_y;
+  config["Weight_PLICP"]["x"] = all_PLICP_weight_x;
+  config["Weight_PLICP"]["y"] = all_PLICP_weight_y;
 
   std::string graph_log_path = path + "_log.yaml";
   std::ofstream fout(graph_log_path);
@@ -3259,11 +3342,6 @@ void SlamGMapping::SaveResidual(double curr_time)
   PLICP_res_all_y.push_back(plicp_ukf.y_(1));
   res_time_stamp.push_back(curr_time);
 
-  count_res++;
-
-  if (count_res > 9)
-    count_res = 0;
-
 }
 
 void SlamGMapping::HypothesisTesting()
@@ -3271,6 +3349,8 @@ void SlamGMapping::HypothesisTesting()
   VectorXd orb_avg = VectorXd::Zero(2);
   VectorXd plicp_avg = VectorXd::Zero(2);
 
+  int orb_crash_count_x = 0;
+  int orb_crash_count_y = 0;
 
   // count the sum of every residual
   for (int i=0; i<sum_res; i++)
@@ -3280,7 +3360,25 @@ void SlamGMapping::HypothesisTesting()
 
     plicp_avg(0) += PLICP_res(i, 0);
     plicp_avg(1) += PLICP_res(i, 1);
+
+    if (double(ORB_res(i, 0)) == 0.0)
+      orb_crash_count_x++;
+    if (double(ORB_res(i, 1)) == 0.0)
+      orb_crash_count_y++;
+
+    if (abs(PLICP_res(i, 0)) >= 0.8 || abs(PLICP_res(i, 1)) >= 0.8)
+    {
+      PLICP_crash = true;
+      ORB_weight(0) = 1.0;
+      ORB_weight(1) = 1.0;
+      PLICP_weight(0) = 0.0;
+      PLICP_weight(1) = 0.0;
+      std::cerr << "aaaaaaaaaaaaaaaaaaaaaaaa plicp crash aaaaaaaaaaaaaaaaaaaaaaaa" << std::endl;
+      std::cerr << "aaaaaaaaaaaaaaaaaaaaaaaa plicp crash aaaaaaaaaaaaaaaaaaaaaaaa" << std::endl;
+    }
   }
+
+
 
   // count the average of every residual
   orb_avg(0) = orb_avg(0)/sum_res;
@@ -3320,30 +3418,61 @@ void SlamGMapping::HypothesisTesting()
     orb_z(0) += (ORB_res(i, 0) - orb_avg(0)) / (orb_std(0)/sqrt_sum);
     orb_z(1) += (ORB_res(i, 1) - orb_avg(1)) / (orb_std(1)/sqrt_sum);
 
-
     plicp_z(0) += (PLICP_res(i, 0) - plicp_avg(0)) / (plicp_std(0)/sqrt_sum);
     plicp_z(1) += (PLICP_res(i, 1) - plicp_avg(1)) / (plicp_std(1)/sqrt_sum);
   }
 
-  // std::cerr << orb_z(0) << "  " << orb_z(1) << std::endl;
-  // std::cerr << plicp_z(0) << "  " << plicp_z(1) << std::endl;
+    // orb_z(0) = (ORB_res(count_res, 0) - orb_avg(0)) / (orb_std(0));
+    // orb_z(1) = (ORB_res(count_res, 1) - orb_avg(1)) / (orb_std(1));
 
-  AdjustWeight(orb_z, plicp_z, 0);
-  AdjustWeight(orb_z, plicp_z, 1);
+    // plicp_z(0) = (PLICP_res(count_res, 0) - plicp_avg(0)) / (plicp_std(0));
+    // plicp_z(1) = (PLICP_res(count_res, 1) - plicp_avg(1)) / (plicp_std(1));
 
+    std::cerr << "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa" << std::endl;
+    std::cerr << "x (ORB - PLICP):  "  << orb_z(0) -  plicp_z(0)   << std::endl;
+    // std::cerr << "y (ORB - PLICP):  "  << orb_z(1) -  plicp_z(1) << std::endl;
+
+  if (orb_crash_count_x >= 3 || orb_crash_count_y >= 3)
+  {
+    ORB_crash ==  true;
+    ORB_weight(0) = 0.0;
+    ORB_weight(1) = 0.0;
+    PLICP_weight(0) = 1.0;
+    PLICP_weight(1) = 1.0;
+    std::cerr << "aaaaaaaaaaaaaaaaaaaaaaaa orb crash aaaaaaaaaaaaaaaaaaaaaaaa" << std::endl;
+    std::cerr << "aaaaaaaaaaaaaaaaaaaaaaaa orb crash aaaaaaaaaaaaaaaaaaaaaaaa" << std::endl;
+  }
+
+  if ( ORB_crash ==  false && PLICP_crash == false && sum_res == residual_sum )
+  {
+    AdjustWeight(orb_z, plicp_z, 0);
+    AdjustWeight(orb_z, plicp_z, 1);
+  }
+
+  count_res++;
+
+  if (count_res > 9)
+    count_res = 0;
+
+
+  all_ORB_weight_x.push_back(ORB_weight(0));
+  all_ORB_weight_y.push_back(ORB_weight(1));
+  all_PLICP_weight_x.push_back(PLICP_weight(0));
+  all_PLICP_weight_y.push_back(PLICP_weight(1));
 }
 
 void SlamGMapping::AdjustWeight(VectorXd &a, VectorXd &b, int x)
 {
-  // weight can't lower than 0
-  if ( abs(a(x)) >= abs(b(x)) && ORB_weight(x) > 0)
-  {
-    PLICP_weight(x) += 0.01;
-    ORB_weight(x) -= 0.01;
-  }
-  else if( abs(a(x)) < abs(b(x)) && PLICP_weight(x) > 0)
-  {
-    PLICP_weight(x) -= 0.01;
-    ORB_weight(x) += 0.01;
-  }
+    // weight can't lower than 0
+    double reward = 0.01;
+    if ( abs(a(x)) >= abs(b(x)) && ORB_weight(x) > 0)
+    {
+      PLICP_weight(x) += reward;
+      ORB_weight(x) -= reward;
+    }
+    else if( abs(a(x)) < abs(b(x)) && PLICP_weight(x) > 0)
+    {
+      PLICP_weight(x) -= reward;
+      ORB_weight(x) += reward;
+    }
 }

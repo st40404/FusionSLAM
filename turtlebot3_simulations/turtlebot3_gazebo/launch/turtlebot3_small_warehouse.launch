@@ -6,6 +6,7 @@
 
   <include file="$(find gazebo_ros)/launch/empty_world.launch">
     <arg name="world_name" value="$(find aws_robomaker_small_warehouse_world)/worlds/no_roof_small_warehouse.world"/>
+    <!-- <arg name="world_name" value="$(find aws_robomaker_small_warehouse_world)/worlds/no_roof_small_warehouse_o2.world"/> -->
     <arg name="paused" value="false"/>
     <arg name="use_sim_time" value="true"/>
     <arg name="gui" default="true"/>

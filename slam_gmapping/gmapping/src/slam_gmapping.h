@@ -53,6 +53,7 @@
 #include "all_process/CameraPose.h"
 // add Kill node Trigger service
 #include "all_process/Trigger.h"
+
 // use log
 #include <fstream>
 
@@ -179,7 +180,7 @@ class SlamGMapping
     GMapping::OrientedPoint odom_last;
     // plicp last period predict by UKF
     // GMapping::OrientedPoint plicp_last_predict;
-
+    GMapping::OrientedPoint odom_init;
 
     // save each model's residual
     void SaveResidual(double curr_time);
@@ -208,7 +209,16 @@ class SlamGMapping
 
     VectorXd ORB_weight;
     VectorXd PLICP_weight;
-    
+
+    std::vector<double> all_ORB_weight_x;
+    std::vector<double> all_ORB_weight_y;
+    std::vector<double> all_PLICP_weight_x;
+    std::vector<double> all_PLICP_weight_y;
+
+    // detect if sensor is error
+    bool ORB_crash;
+    bool PLICP_crash;
+
     // according to residual to adjust weight
     void AdjustWeight(VectorXd &a, VectorXd &b, int x);
 
@@ -256,12 +266,22 @@ class SlamGMapping
     double MSE_best_odom_y = 0.0;
     double MSE_best_odom_sum = 0.0;
 
+
+    std::vector<double> AE_half_odom;             // for saving UKF-PLICP(compare with PLICP) average error
+
+    double MSE_half_odom_x = 0.0;
+    double MSE_half_odom_y = 0.0;
+    double MSE_half_odom_sum = 0.0;
+
+
+
     std::vector<double> trajectory_PLICP;             // for saving PLICP trajectory
     std::vector<double> trajectory_ORB;               // for saving ORB trajectory
-    std::vector<double> trajectory_UKF_PLICP;        // for saving UKF of PLICP trajectory
+    std::vector<double> trajectory_UKF_PLICP;         // for saving UKF of PLICP trajectory
     std::vector<double> trajectory_UKF_ORB;           // for saving UKF of ORB trajectory
     std::vector<double> trajectory_real;              // for saving odom trajectory
     std::vector<double> trajectory_best;              // for saving best trajectory
+    std::vector<double> trajectory_each_half;         // for saving half weight trajectory
 
     // compute precision of PLICP
     void Precision_PLICP(const nav_msgs::Odometry::ConstPtr& odom, double x, double y);
@@ -275,6 +295,10 @@ class SlamGMapping
 
     // compute precision of best pose
     void Precision_Best_Pose(const nav_msgs::Odometry::ConstPtr& odom, double x, double y);
+
+    // compute precision of best pose
+    void Precision_Half_Pose(const nav_msgs::Odometry::ConstPtr& odom, double x, double y);
+
 
     // add KillTrigger function of master service for kill node trigger
     bool KillTrigger(   all_process::Trigger::Request  &req,
@@ -299,8 +323,7 @@ class SlamGMapping
     void SaveTrajectoryGraph_(std::string path);
     void CheckFolder(std::string file_path);
     void SaveParam(std::string file_path);
-
-
+    void CompareMSE(std::string file_path);
 
     //define config path
     std::string  config_path = "/home/ron/work/src/all_process/config.yaml";

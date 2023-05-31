@@ -54,7 +54,8 @@ typedef pcl::PointCloud<pcl::PointXYZ> PointCloud;
 
 // #include <geometry_msgs/Twist.h>
 #include <geometry_msgs/PointStamped.h>
-#include <math.h>   
+#include <math.h>
+
 using namespace std;
 #define PI 3.14159265
 
@@ -77,6 +78,7 @@ public:
 
     // define camera Pose service
     ros::ServiceServer CamPose_serv;
+    ros::ServiceServer LaserPose_serv;
 
     // save every previous poase untill client send the request
     vector <geometry_msgs::PointStamped> PreviousPose ;
@@ -120,6 +122,7 @@ public:
 
     ORB_SLAM2::System* mpSLAM;
 };
+
 
 
 int main(int argc, char **argv)
@@ -200,7 +203,6 @@ int main(int argc, char **argv)
     return 0;
 }
 
-
 // get current data from tracker
 void ImageGrabber::callback()
 {
@@ -211,18 +213,6 @@ void ImageGrabber::callback()
     // this get currence pose, there have less pose are same
     CurrentPose = mpSLAM->Getpose_();
     CurrentLocate = mpSLAM->GetPoseInverse();
-
-    // std::cerr << "aaaaaaaaaaaaaaaaaaaaaaaaaa" << std::endl;
-    // std::cerr << CurrentPose.at<float>(0, 3) << "   " << CurrentPose.at<float>(1, 3) << std::endl;
-    // std::cerr << CurrentLocate.at<float>(0, 3) << "   " << CurrentLocate.at<float>(1, 3) << std::endl;
-
-    // cv::Mat Rwc(3,3,CV_32F);
-    // cv::Mat twc(3,1,CV_32F);
-    // Rwc = CurrentPose.rowRange(0,3).colRange(0,3).t();
-    // twc = -Rwc*CurrentPose.rowRange(0,3).col(3);
-
-    // std::cerr << twc.at<float>(0, 0) << "   " << CurrentLocate.at<float>(0, 1) << std::endl;
-
 }
 
 // publish point clouds
@@ -366,8 +356,13 @@ void ImageGrabber::PublishCamPose()
         // msg.point.z = angularZ / 180.0 * PI;
 
         // bookstore
-        msg.point.x = twc.at<float>(2) - 3;
-        msg.point.y = -1*twc.at<float>(0) + 5;
+        // msg.point.x = twc.at<float>(2) - 3.064;
+        // // msg.point.x = twc.at<float>(2) - 3.0;
+        // msg.point.y = -1*twc.at<float>(0) + 5;
+        // msg.point.z = angularZ / 180.0 * PI;
+
+        msg.point.x = twc.at<float>(2);
+        msg.point.y = -1*twc.at<float>(0);
         msg.point.z = angularZ / 180.0 * PI;
 
         // small warehouse
@@ -398,10 +393,8 @@ bool ImageGrabber::SurvicePose(  all_process::CameraPose::Request  &req,
             PreviousPose.clear();
             return true;
         }
-    // if (PreviousPose.size() >= 1000)
-    //     PreviousPose.clear();
 
-    return false;   
+    return false;
 }
 
 
@@ -423,6 +416,8 @@ void ImageGrabber::SetPose()
 // set transform matrix from camera to lidar
 void ImageGrabber::Init()
 {
+    // double initial_x = 0.0;
+    // double initial_y = 0.0;
     // Eigen::Matrix4d Tlc;
    
     // Tlc(0, 0) = 4.0834537461359129e-02;
