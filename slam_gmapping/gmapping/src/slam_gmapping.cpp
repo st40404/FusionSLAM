@@ -2093,13 +2093,15 @@ void SlamGMapping::TerminateTrigger()
   tstruct = *localtime(&now);
   strftime(buf, sizeof(buf), "%Y_%m_%d_%X", &tstruct);
 
-  std::string file_path = log_path + "/data/realistic_test/" + std::string(buf);
-  // std::string file_path = "/home/ron/work/src/all_process/data/realistic_test/" + std::string(buf);
+  // std::string file_path = log_path + "/data/realistic_test/" + std::string(buf);
+  std::string file_path = log_path + "/data/collect/" ;
   CheckFolder(file_path);
 
-  SaveTrajectoryGraph_(file_path + "/Trajectory");
-  SaveParam(file_path + "/result");
-  CompareMSE(log_path + "/data/realistic_test/result.yaml");
+  SaveTrajectoryGraph_(file_path + std::string(buf));
+
+  // SaveTrajectoryGraph_(file_path + "/Trajectory");
+  // SaveParam(file_path + "/result");
+  // CompareMSE(log_path + "/data/realistic_test/result.yaml");
 }
 
 void SlamGMapping::CompareMSE(std::string file_path)
@@ -2331,7 +2333,7 @@ void SlamGMapping::SaveTrajectoryGraph_(std::string path)
   plt::legend();
   std::string graph_path = path + "_graph.pdf";
   plt::title("Trajectory");
-  plt::savefig(graph_path);
+  // plt::savefig(graph_path);
 
   // save log
   YAML::Node config;
@@ -3428,8 +3430,8 @@ void SlamGMapping::HypothesisTesting()
     // plicp_z(0) = (PLICP_res(count_res, 0) - plicp_avg(0)) / (plicp_std(0));
     // plicp_z(1) = (PLICP_res(count_res, 1) - plicp_avg(1)) / (plicp_std(1));
 
-    std::cerr << "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa" << std::endl;
-    std::cerr << "x (ORB - PLICP):  "  << orb_z(0) -  plicp_z(0)   << std::endl;
+    // std::cerr << "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa" << std::endl;
+    // std::cerr << "x (ORB - PLICP):  "  << orb_z(0) -  plicp_z(0)   << std::endl;
     // std::cerr << "y (ORB - PLICP):  "  << orb_z(1) -  plicp_z(1) << std::endl;
 
   if (orb_crash_count_x >= 3 || orb_crash_count_y >= 3)
