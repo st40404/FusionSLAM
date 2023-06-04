@@ -363,7 +363,7 @@ void ImageGrabber::PublishCamPose()
 
         msg.point.x = twc.at<float>(2);
         msg.point.y = -1*twc.at<float>(0);
-        msg.point.z = angularZ / 180.0 * PI;
+        msg.point.z = -1 * angularZ / 180.0 * PI;
 
         // small warehouse
         // msg.point.x = twc.at<float>(2) - 3.8;

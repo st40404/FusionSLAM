@@ -147,7 +147,8 @@ class Trajectory():
     def SaveTrajecAll(self):
         for i in self.show_list:
             if (i == 'PLICP'):
-                self.DrawAll(self.point_plicp, "mediumpurple", 'PLICP')
+                # self.DrawAll(self.point_plicp, "mediumpurple", 'PLICP')
+                self.DrawAll(self.point_plicp, "blue", 'PLICP')
             elif (i == 'ORB'):
                 self.DrawAll(self.point_orb, "red", 'ORB')
             elif (i == 'UKF_PLICP'):
@@ -171,7 +172,8 @@ class Trajectory():
     def SaveTrajecX(self):
         for i in self.show_list:
             if (i == 'PLICP'):
-                self.DrawX(self.point_plicp, "mediumpurple", 'PLICP')
+                # self.DrawX(self.point_plicp, "mediumpurple", 'PLICP')
+                self.DrawX(self.point_plicp, "blue", 'PLICP')
             elif (i == 'ORB'):
                 self.DrawX(self.point_orb, "red", 'ORB')
             elif (i == 'UKF_PLICP'):
@@ -195,7 +197,8 @@ class Trajectory():
     def SaveTrajecY(self):
         for i in self.show_list:
             if (i == 'PLICP'):
-                self.DrawY(self.point_plicp, "blueviolet", 'PLICP')
+                # self.DrawY(self.point_plicp, "blueviolet", 'PLICP')
+                self.DrawY(self.point_plicp, "blue", 'PLICP')
             elif (i == 'ORB'):
                 self.DrawY(self.point_orb, "red", 'ORB')
             elif (i == 'UKF_PLICP'):
@@ -277,8 +280,8 @@ class Trajectory():
 
 
     def DrawWeight(self, x1, y1, x2, y2, method_1, method_2, _ylabel):
-        plt.plot(x1, y1, color = 'blue', linewidth ='1', label = method_1)
-        plt.plot(x2, y2, color = 'red', linewidth ='1', label = method_2)
+        plt.plot(x1, y1, color = 'red', linewidth ='1', label = method_1)
+        plt.plot(x2, y2, color = 'blue', linewidth ='1', label = method_2)
         plt.title( _ylabel + ' Axis Weight')
         plt.xlabel('Time (s)')
         plt.ylabel(_ylabel + " (%)")
@@ -353,7 +356,7 @@ if __name__=='__main__':
     # path = '/home/ron/work/src/all_process/data/Trajectory'
     # file_name = '2023_05_26_12:04:44'
 
-    name = '2023_05_30_20:35:06'
+    name = '2023_06_04_12:29:03'
     path = '/home/ron/work/src/all_process/data/realistic_test/' + name
     file_name = ''
 

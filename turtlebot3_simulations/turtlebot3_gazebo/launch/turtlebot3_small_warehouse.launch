@@ -4,6 +4,22 @@
   <arg name="y_pos" default="5.5"/>
   <arg name="z_pos" default="0.0"/>
 
+  <!-- <arg name="x_pos" default="-4.2"/>
+  <arg name="y_pos" default="-1.5"/>
+  <arg name="z_pos" default="0.0"/> -->
+  
+  <!-- <arg name="x_pos" default="-1.2"/>
+  <arg name="y_pos" default="-7.4"/>
+  <arg name="z_pos" default="0.0"/> -->
+  
+  <!-- <arg name="x_pos" default="-4.2"/>
+  <arg name="y_pos" default="-1.5"/>
+  <arg name="z_pos" default="0.0"/> -->
+  
+  <!-- <arg name="x_pos" default="-4.2"/>
+  <arg name="y_pos" default="-1.5"/>
+  <arg name="z_pos" default="0.0"/> -->
+
   <include file="$(find gazebo_ros)/launch/empty_world.launch">
     <arg name="world_name" value="$(find aws_robomaker_small_warehouse_world)/worlds/no_roof_small_warehouse.world"/>
     <!-- <arg name="world_name" value="$(find aws_robomaker_small_warehouse_world)/worlds/no_roof_small_warehouse_o2.world"/> -->

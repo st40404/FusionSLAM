@@ -1,0 +1,11 @@
+float64 orb_x
+float64 orb_y
+float64 plicp_x
+float64 plicp_y
+float64 ukf_orb_x
+float64 ukf_orb_y
+float64 ukf_plicp_x
+float64 ukf_plicp_y
+---
+float64 plicp_w_x
+float64 plicp_w_y

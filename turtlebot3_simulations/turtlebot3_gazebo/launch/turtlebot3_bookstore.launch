@@ -3,8 +3,21 @@
   <arg name="x_pos" default="-3.0"/>
   <arg name="y_pos" default="5"/>
   <arg name="z_pos" default="0.0"/>
+
   <!-- <arg name="x_pos" default="-3.9"/>
-  <arg name="y_pos" default="-4.9"/>
+  <arg name="y_pos" default="-5.0"/>
+  <arg name="z_pos" default="0.0"/> -->
+
+  <!-- <arg name="x_pos" default="-3.0"/>
+  <arg name="y_pos" default="5"/>
+  <arg name="z_pos" default="0.0"/>
+
+  <arg name="x_pos" default="-3.0"/>
+  <arg name="y_pos" default="5"/>
+  <arg name="z_pos" default="0.0"/>
+  
+  <arg name="x_pos" default="-3.0"/>
+  <arg name="y_pos" default="5"/>
   <arg name="z_pos" default="0.0"/> -->
 
   <include file="$(find gazebo_ros)/launch/empty_world.launch">

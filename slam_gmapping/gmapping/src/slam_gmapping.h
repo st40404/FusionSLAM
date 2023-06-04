@@ -53,6 +53,9 @@
 #include "all_process/CameraPose.h"
 // add Kill node Trigger service
 #include "all_process/Trigger.h"
+// add PPO node get training result
+#include "all_process/PPOPose.h"
+#include "all_process/PPOPose_.h"
 
 // use log
 #include <fstream>
@@ -136,8 +139,8 @@ class SlamGMapping
     sm_result output_;
     LDP prev_ldp_scan_;
 
-    // change method : 0 = gmapping, 1 = PLICP, 2 = PLICP+ORB
-    int mymethod = 2;
+    // change method : 0 = gmapping, 1 = PLICP, 2 = PLICP+ORB, 3 = PLICP+ORB by ppo
+    int mymethod = 3;
 
     // initialize PLICP parameters
     void InitICPParams();
@@ -160,7 +163,11 @@ class SlamGMapping
     ros::Subscriber sub;
     void SubsPose(const geometry_msgs::PointStamped::ConstPtr &pose);
     ros::ServiceClient CamPose_client;
+    ros::ServiceClient PPO_client;
+    ros::ServiceClient PPO_client_;
     all_process::CameraPose srv;
+    all_process::PPOPose ppo_srv;
+    all_process::PPOPose_ ppo_srv_;
 
     // define kill node trigger  service
     ros::ServiceServer Trigger_serv;
@@ -209,6 +216,7 @@ class SlamGMapping
 
     VectorXd ORB_weight;
     VectorXd PLICP_weight;
+    VectorXd rotate_weight;
 
     std::vector<double> all_ORB_weight_x;
     std::vector<double> all_ORB_weight_y;
@@ -283,6 +291,10 @@ class SlamGMapping
     std::vector<double> trajectory_best;              // for saving best trajectory
     std::vector<double> trajectory_each_half;         // for saving half weight trajectory
 
+    std::vector<double> trajectory_ORB_r;              // for saving orb rotate
+    std::vector<double> trajectory_PLICP_r;            // for saving plicp rotate
+    std::vector<double> trajectory_real_r;             // for saving real rotate
+
     // compute precision of PLICP
     void Precision_PLICP(const nav_msgs::Odometry::ConstPtr& odom, double x, double y);
     // compute precision of ORB
@@ -339,6 +351,25 @@ class SlamGMapping
     
     
     bool first_time = true;
+
+    GMapping::OrientedPoint save_last_orb;
+    GMapping::OrientedPoint save_last_plicp;
+    GMapping::OrientedPoint save_last_res_orb;
+    GMapping::OrientedPoint save_last_res_plicp;
+    
+    double ComputeDiff(double last, double curr);
+
+
+
+    tf::Transform Ron_pose;
+    tf::Transform Ron_half_pose;
+    // tf::Transform base_to_laser;
+
+
+    GMapping::OrientedPoint Ron;
+
+
+
   private:
     ros::NodeHandle node_;
     ros::Publisher entropy_publisher_;
