@@ -63,7 +63,7 @@ add_service_files(
    CameraPose.srv
    Trigger.srv
    PPOPose.srv
-   PPOPose_.srv
+   PPOPose_2.srv
 )
 
 ## Generate actions in the 'action' folder

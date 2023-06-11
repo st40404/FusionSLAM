@@ -55,7 +55,7 @@
 #include "all_process/Trigger.h"
 // add PPO node get training result
 #include "all_process/PPOPose.h"
-#include "all_process/PPOPose_.h"
+#include "all_process/PPOPose_2.h"
 
 // use log
 #include <fstream>
@@ -167,14 +167,14 @@ class SlamGMapping
     ros::ServiceClient PPO_client_;
     all_process::CameraPose srv;
     all_process::PPOPose ppo_srv;
-    all_process::PPOPose_ ppo_srv_;
+    all_process::PPOPose_2 ppo_srv_;
 
     // define kill node trigger  service
     ros::ServiceServer Trigger_serv;
 
 
     // save last period pose of plicp
-    // GMapping::OrientedPoint last_odom_pose;
+    GMapping::OrientedPoint last_odom_pose;
     // GMapping::OrientedPoint last_ORB_pose;
     tf::Transform plicp_pose;
     tf::Transform base_to_laser;
@@ -226,6 +226,7 @@ class SlamGMapping
     // detect if sensor is error
     bool ORB_crash;
     bool PLICP_crash;
+    bool both_crash;
 
     // according to residual to adjust weight
     void AdjustWeight(VectorXd &a, VectorXd &b, int x);
@@ -238,11 +239,15 @@ class SlamGMapping
     double MSE_PLICP_x = 0.0;
     double MSE_PLICP_y = 0.0;
     double MSE_PLICP_sum = 0.0;
+    double MSE_PLICP_x_max = 0.0;
+    double MSE_PLICP_y_max = 0.0;
 
     // for saving ORBSLAM2 MSE (without divide size)
     double MSE_ORBSLAM_x = 0.0;
     double MSE_ORBSLAM_y = 0.0;
     double MSE_ORBSLAM_sum = 0.0;
+    double MSE_ORBSLAM_x_max = 0.0;
+    double MSE_ORBSLAM_y_max = 0.0;
 
     /////// compute the average and MSE of ORBSLAM2 & PLICP /////////////
     std::vector<double> AE_UKF_ORB_odom;        // for saving UKF-ORBSLAM2(compare with odom) average error 
@@ -273,14 +278,16 @@ class SlamGMapping
     double MSE_best_odom_x = 0.0;
     double MSE_best_odom_y = 0.0;
     double MSE_best_odom_sum = 0.0;
-
+    double MSE_best_odom_x_max = 0.0;
+    double MSE_best_odom_y_max = 0.0;
 
     std::vector<double> AE_half_odom;             // for saving UKF-PLICP(compare with PLICP) average error
 
     double MSE_half_odom_x = 0.0;
     double MSE_half_odom_y = 0.0;
     double MSE_half_odom_sum = 0.0;
-
+    double MSE_half_odom_x_max = 0.0;
+    double MSE_half_odom_y_max = 0.0;
 
 
     std::vector<double> trajectory_PLICP;             // for saving PLICP trajectory
@@ -365,8 +372,10 @@ class SlamGMapping
     tf::Transform Ron_half_pose;
     // tf::Transform base_to_laser;
 
-
-    GMapping::OrientedPoint Ron;
+    std::vector<double> save_orb_z_x;
+    std::vector<double> save_orb_z_y;
+    std::vector<double> save_plicp_z_x;
+    std::vector<double> save_plicp_z_y;
 
 
 

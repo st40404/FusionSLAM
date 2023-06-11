@@ -2,7 +2,7 @@
 import os,glob
 import matplotlib.pyplot as plt
 import yaml
-
+import math
 
 class Trajectory():
     def __init__(self, path, file_name, my_list):
@@ -13,6 +13,7 @@ class Trajectory():
         self.res_path = path + "/Res_"
         self.weight_path = path + "/Weight_"
         self.mse_path = path + "/MSE_"
+        self.z_path = path + "/z_"
         self.show_list = my_list
 
         self.point_plicp = []
@@ -37,6 +38,9 @@ class Trajectory():
 
         self.mse_curr_orb = []
         self.mse_curr_plicp = []
+
+        self.hypo_orb = []
+        self.hypo_plicp = []
 
 # Generate_Graph
     def LoadTrajec(self):
@@ -144,6 +148,27 @@ class Trajectory():
             self.weight_plicp[2].append( _data['Residual']['time'][i] )
 
 
+        ######### save z of hypothesis of orb ###########
+        self.hypo_orb.append([])
+        self.hypo_orb.append([])
+        self.hypo_orb.append([])
+        for i in range(0, len(_data['Hypothesis']['ORB_x'])):
+            self.hypo_orb[0].append( _data['Hypothesis']['ORB_x'][i])
+            self.hypo_orb[1].append( _data['Hypothesis']['ORB_y'][i])
+            self.hypo_orb[2].append( _data['Residual']['time'][i] )
+
+
+        ######### save z of hypothesis of plicp ###########
+        self.hypo_plicp.append([])
+        self.hypo_plicp.append([])
+        self.hypo_plicp.append([])
+        for i in range(0, len(_data['Hypothesis']['PLICP_x'])):
+            self.hypo_plicp[0].append( _data['Hypothesis']['PLICP_x'][i])
+            self.hypo_plicp[1].append( _data['Hypothesis']['PLICP_y'][i])
+            self.hypo_plicp[2].append( _data['Residual']['time'][i] )
+
+
+
     def SaveTrajecAll(self):
         for i in self.show_list:
             if (i == 'PLICP'):
@@ -158,13 +183,15 @@ class Trajectory():
             elif (i == 'real'):
                 self.DrawAll(self.point_real, "black", 'ground_trust')
             elif (i == 'Our_method'):
-                self.DrawAll(self.point_our_method, "red", 'Our_method')
+                self.DrawAll(self.point_our_method, "green", 'Our_method')
             elif (i == 'Half_w'):
                 self.DrawAll(self.point_half_weight, "pink", 'half_weight')
 
         plt.title( 'Trajectory')
-        plt.xlabel('Y (cm)')
-        plt.ylabel('X (cm)')
+        plt.xlabel('X (cm)')
+        plt.ylabel('Y (cm)')
+        # plt.xlim(-800, 800)
+        # plt.ylim(-800, 800)
         plt.legend(shadow=True, facecolor='ivory')
         plt.savefig(self.save_path + "_all")
         plt.clf()
@@ -183,7 +210,7 @@ class Trajectory():
             elif (i == 'real'):
                 self.DrawX(self.point_real, "black", 'ground_trust')
             elif (i == 'Our_method'):
-                self.DrawX(self.point_our_method, "red", 'Our_method')
+                self.DrawX(self.point_our_method, "green", 'Our_method')
             elif (i == 'Half_w'):
                 self.DrawX(self.point_half_weight, "pink", 'half_weight')
 
@@ -208,7 +235,7 @@ class Trajectory():
             elif (i == 'real'):
                 self.DrawY(self.point_real, "black", 'ground_trust')
             elif (i == 'Our_method'):
-                self.DrawY(self.point_our_method, "red", 'Our_method')
+                self.DrawY(self.point_our_method, "green", 'Our_method')
             elif (i == 'Half_w'):
                 self.DrawY(self.point_half_weight, "pink", 'half_weight')
 
@@ -322,6 +349,20 @@ class Trajectory():
         self.DrawMSE(self.mse_curr_orb[2], self.mse_curr_orb[0], self.mse_curr_plicp[2], self.mse_curr_plicp[0], "ORB", "PLICP", "X")
         self.DrawMSE(self.mse_curr_orb[2], self.mse_curr_orb[1], self.mse_curr_plicp[2], self.mse_curr_plicp[1], "ORB", "PLICP", "Y")
 
+    def SaveHypoZ(self):
+        self.DrawZ(self.hypo_orb[2], self.hypo_orb[0], "ORB_x")
+        self.DrawZ(self.hypo_orb[2], self.hypo_orb[1], "ORB_y")
+        
+        self.DrawZ(self.hypo_plicp[2], self.hypo_plicp[0], "PLICP_x")
+        self.DrawZ(self.hypo_plicp[2], self.hypo_plicp[1], "PLICP_y")
+
+    def DrawZ(self, x, y, _ylabel):
+        plt.plot(x, y, color = 'red', linewidth ='1')
+        plt.title('Hypothesis z of ' + _ylabel)
+        plt.xlabel('Time (s)')
+        plt.ylabel('z')
+        plt.savefig(self.z_path + "_" + _ylabel)
+        plt.clf()
 
     def ComeputeCurMSE(self, _target, _refer, _contain):
         for i in range(0, len(_target[0])):
@@ -356,18 +397,18 @@ if __name__=='__main__':
     # path = '/home/ron/work/src/all_process/data/Trajectory'
     # file_name = '2023_05_26_12:04:44'
 
-    name = '2023_06_04_12:29:03'
+    name = '2023_06_10_23:37:53'
     path = '/home/ron/work/src/all_process/data/realistic_test/' + name
     file_name = ''
 
     all_list = ['PLICP', 'ORB', 'UKF_PLICP', 'UKF_ORB', 'real', 'Our_method', 'Half_w']
-    # show_list = ['PLICP', 'ORB', 'real','Our_method']
+    show_list = ['PLICP', 'ORB', 'real','Our_method']
     # show_list = ['PLICP', 'ORB']
     # show_list = ['PLICP', 'UKF_PLICP']
     # show_list = ['ORB', 'UKF_ORB']
 
     # show_list = ['PLICP', 'ORB', 'UKF_PLICP', 'UKF_ORB', 'real', 'Our_method', 'Half_w']
-    show_list = ['PLICP', 'ORB', 'real']
+    # show_list = ['PLICP', 'ORB', 'real']
 
     Tj_ = Trajectory(path, file_name, show_list)
     Tj_.LoadTrajec()
@@ -380,4 +421,5 @@ if __name__=='__main__':
     Tj_.SaveWeight()
     # Tj_.SaveAllMSE()
     Tj_.SaveCurMSE()
+    Tj_.SaveHypoZ()
 

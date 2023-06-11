@@ -318,7 +318,7 @@ void SlamGMapping::startLiveSlam()
     ROS_INFO("Using method : PLICP + ORB by PPO");
     // using service (client)
     CamPose_client = node_.serviceClient<all_process::CameraPose>("/ORB/pose");
-    PPO_client_ = node_.serviceClient<all_process::PPOPose_>("/ppo/get_all_pose_");
+    PPO_client_ = node_.serviceClient<all_process::PPOPose_2>("/ppo/get_all_pose_");
 
     // using subscribe
     // sub = node_.subscribe("/ORB/camera_pose", 5, &SlamGMapping::SubsPose, this);
@@ -801,12 +801,16 @@ SlamGMapping::ScanCallback(const sensor_msgs::LaserScan::ConstPtr& scan, GMappin
   // plicp_pose = plicp_pose * plicp_trans;
 
 
-  // GMapping::OrientedPoint icp_pose( base_in_map_.getOrigin().getX(),
-  //                                   base_in_map_.getOrigin().getY(),
-  //                                   tf::getYaw(base_in_map_.getRotation()));
-  GMapping::OrientedPoint icp_pose( Ron_pose.getOrigin().getX(),
-                                    Ron_pose.getOrigin().getY(),
-                                    tf::getYaw(Ron_pose.getRotation()));
+
+  GMapping::OrientedPoint icp_pose( base_in_map_.getOrigin().getX(),
+                                    base_in_map_.getOrigin().getY(),
+                                    tf::getYaw(base_in_map_.getRotation()));
+  if (mymethod == 3)
+    GMapping::OrientedPoint icp_pose( Ron_pose.getOrigin().getX(),
+                                      Ron_pose.getOrigin().getY(),
+                                      tf::getYaw(Ron_pose.getRotation()));
+
+
 
   // save pose and scan reading
   reading.setPose(icp_pose);
@@ -936,8 +940,8 @@ void SlamGMapping::laserCallback(const sensor_msgs::LaserScan::ConstPtr& scan, c
       // last_odom_pose.y = 0;
       // last_odom_pose.theta = 0;
 
-      ORB_crash   = false;
-      PLICP_crash = false;
+      // ORB_crash   = false;
+      // PLICP_crash = false;
 
       input_.laser[0] = 0.0;
       input_.laser[1] = 0.0;
@@ -1386,6 +1390,16 @@ void SlamGMapping::laserCallback(const sensor_msgs::LaserScan::ConstPtr& scan, c
         Precision_UKF_ORB(odom, srv.response.x, srv.response.y, orb_ukf.x_[0], orb_ukf.x_[1]);
         Precision_UKF_PLICP(odom, base_in_map_.getOrigin().getX(), base_in_map_.getOrigin().getY(), plicp_ukf.x_[0], plicp_ukf.x_[1]);
 
+        // for Hypothesis
+        // save all residual
+        if (sum_res < residual_sum)
+          sum_res++;
+          
+        ORB_res(count_res, 0) = orb_ukf.y_(0);
+        ORB_res(count_res, 1) = orb_ukf.y_(1);
+
+        PLICP_res(count_res, 0) = plicp_ukf.y_(0);
+        PLICP_res(count_res, 1) = plicp_ukf.y_(1);
 
         ORB_res_all_x.push_back(orb_ukf.y_(0));
         ORB_res_all_y.push_back(orb_ukf.y_(1));
@@ -1429,8 +1443,11 @@ void SlamGMapping::laserCallback(const sensor_msgs::LaserScan::ConstPtr& scan, c
         ppo_srv_.request.ukf_plicp_y = ComputeDiff(save_last_res_plicp.y , plicp_ukf.y_(1));
 
 
-        // std::cerr << save_last_orb.x << std::endl;
-        // std::cerr << save_last_orb.y << std::endl;
+        // std::cerr << "uuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuu" << std::endl;
+        // std::cerr << ppo_srv_.request.orb_x << "  " <<  ppo_srv_.request.orb_y << "" << ppo_srv_.request.orb_theta << std::endl;
+        // std::cerr << ppo_srv_.request.plicp_x << "  " <<  ppo_srv_.request.plicp_y << "" << ppo_srv_.request.plicp_theta << std::endl;
+
+
         // std::cerr << save_last_orb.theta << std::endl;
         // std::cerr << save_last_plicp.x << std::endl;
         // std::cerr << save_last_plicp.y << std::endl;
@@ -1443,7 +1460,7 @@ void SlamGMapping::laserCallback(const sensor_msgs::LaserScan::ConstPtr& scan, c
         // if the pose request with same stamp between camera and lidar was accept
         if (PPO_client_.call(ppo_srv_))
         {
-          std::cerr << "xxxxxxxxxxxxxxxxxxxxxxxxxx" << std::endl;
+          // std::cerr << "xxxxxxxxxxxxxxxxxxxxxxxxxx" << std::endl;
           // std::cerr << ppo_srv.response.plicp_w_x << "  " << ppo_srv.response.plicp_w_y << std::endl;
           ORB_weight(0)   = 1 - ppo_srv_.response.plicp_w_x;
           ORB_weight(1)   = 1 - ppo_srv_.response.plicp_w_y;
@@ -1453,12 +1470,26 @@ void SlamGMapping::laserCallback(const sensor_msgs::LaserScan::ConstPtr& scan, c
           PLICP_weight(2) = ppo_srv_.response.plicp_w_theta;
         }
 
-        ORB_weight(0) = 0.5;
-        ORB_weight(1) = 0.5;
-        ORB_weight(2) = 0.5;
-        PLICP_weight(0) = 0.5;
-        PLICP_weight(1) = 0.5;
-        PLICP_weight(2) = 0.5;
+        HypothesisTesting();
+
+        // if (flag_orb == true && flag_plicp == true)
+        // {
+        //   // save the recent amount (param: residual_sum) of residual
+        //   SaveResidual(current_time);
+        //   HypothesisTesting();
+
+        //   // std::cerr << "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa" << std::endl;
+        //   // std::cerr << "ORB_x:  "   << ORB_weight(0)   <<  "   ORB_y  "    << ORB_weight(1)   << std::endl;
+        //   // std::cerr << "PLICP_x:  " << PLICP_weight(0) <<  "   PLICP_y:  " << PLICP_weight(1) << std::endl;
+        // }
+
+
+        // ORB_weight(0) = 0.5;
+        // ORB_weight(1) = 0.5;
+        // ORB_weight(2) = 0.5;
+        // PLICP_weight(0) = 0.5;
+        // PLICP_weight(1) = 0.5;
+        // PLICP_weight(2) = 0.5;
 
         all_ORB_weight_x.push_back(ORB_weight(0));
         all_ORB_weight_y.push_back(ORB_weight(1));
@@ -1469,6 +1500,21 @@ void SlamGMapping::laserCallback(const sensor_msgs::LaserScan::ConstPtr& scan, c
         double x__     = ORB_weight(0) * ComputeDiff(save_last_orb.x, srv.response.x) + PLICP_weight(0) * ComputeDiff(save_last_plicp.x, base_in_map_.getOrigin().getX());
         double y__     = ORB_weight(1) * ComputeDiff(save_last_orb.y, srv.response.y) + PLICP_weight(1) * ComputeDiff(save_last_plicp.y, base_in_map_.getOrigin().getY());
         double theta__ = ORB_weight(2) * orb_the + PLICP_weight(2) * plicp_the;
+
+        // if ( both_crash == true)
+        // {
+        //   std::cerr << "hgffffffffffffffffffffffffffffffffffffffffffffffffff" << std::endl;
+        //   std::cerr << "hgffffffffffffffffffffffffffffffffffffffffffffffffff" << std::endl;
+        //   std::cerr << last_odom_pose.x<<"  " << odom_pose.x<< std::endl;
+        //   std::cerr << last_odom_pose.y<<"  " << odom_pose.y<< std::endl;
+        //   std::cerr << last_odom_pose.theta<<"  " << odom_pose.theta<< std::endl;
+        //   std::cerr << "hgffffffffffffffffffffffffffffffffffffffffffffffffff" << std::endl;
+        //   double x__     = ComputeDiff(last_odom_pose.x,     odom_pose.x);
+        //   double y__     = ComputeDiff(last_odom_pose.y,     odom_pose.y);
+        //   double theta__ = ComputeDiff(last_odom_pose.theta, odom_pose.theta);
+        // }
+
+
 
         double half_x__     = 0.5 * ComputeDiff(save_last_orb.x, srv.response.x) + 0.5 * ComputeDiff(save_last_plicp.x, base_in_map_.getOrigin().getX());
         double half_y__     = 0.5 * ComputeDiff(save_last_orb.y, srv.response.y) + 0.5 * ComputeDiff(save_last_plicp.y, base_in_map_.getOrigin().getY());
@@ -1493,6 +1539,8 @@ void SlamGMapping::laserCallback(const sensor_msgs::LaserScan::ConstPtr& scan, c
         // std::cerr << Ron_pose.getOrigin().getX() << "  " << Ron_pose.getOrigin().getY() << "  " << tf::getYaw(Ron_pose.getRotation()) << std::endl;
         // std::cerr << base_in_map_.getOrigin().getX() << "  " << base_in_map_.getOrigin().getY() << "  " << tf::getYaw(base_in_map_.getRotation())<< std::endl;
         // std::cerr << srv.response.x << "  " << srv.response.y << "  " << srv.response.z << std::endl;
+
+        last_odom_pose = odom_pose;
 
         save_last_orb.x       = srv.response.x;
         save_last_orb.y       = srv.response.y;
@@ -2019,7 +2067,8 @@ void SlamGMapping::ScanMatchWithPLICP(LDP &curr_ldp_scan, const ros::Time &time)
     CreateTfFromXYTheta(odom_last.x, odom_last.y, odom_last.theta, prediction_change);
     prediction_change = prediction_change * (base_in_map_ * base_in_map_keyframe_.inverse());
 
-    input_.first_guess[0] = sqrt(odom_last.x*odom_last.x + odom_last.y*odom_last.y);
+    // input_.first_guess[0] = sqrt(odom_last.x*odom_last.x + odom_last.y*odom_last.y);
+    input_.first_guess[0] = 0.0;
     input_.first_guess[1] = 0.0;
     input_.first_guess[2] = tf::getYaw(prediction_change.getRotation());
 
@@ -2320,6 +2369,11 @@ void SlamGMapping::Precision_PLICP(const nav_msgs::Odometry::ConstPtr& odom, dou
   MSE_PLICP_x   += flag_x; 
   MSE_PLICP_y   += flag_y; 
   MSE_PLICP_sum += flag_x + flag_y;
+
+  if ( abs(odom->pose.pose.position.x - x ) > MSE_PLICP_x_max)
+    MSE_PLICP_x_max = abs(odom->pose.pose.position.x - x );
+  if ( abs(odom->pose.pose.position.y - y ) > MSE_PLICP_y_max)
+    MSE_PLICP_y_max = abs(odom->pose.pose.position.y - y );
 }
 // compute precision of ORB
 void SlamGMapping::Precision_ORB(const nav_msgs::Odometry::ConstPtr& odom, double x, double y)
@@ -2332,6 +2386,11 @@ void SlamGMapping::Precision_ORB(const nav_msgs::Odometry::ConstPtr& odom, doubl
   MSE_ORBSLAM_x   += flag_x; 
   MSE_ORBSLAM_y   += flag_y; 
   MSE_ORBSLAM_sum += flag_x + flag_y;
+
+  if ( abs(odom->pose.pose.position.x - x ) > MSE_ORBSLAM_x_max)
+    MSE_ORBSLAM_x_max = abs(odom->pose.pose.position.x - x );
+  if ( abs(odom->pose.pose.position.y - y ) > MSE_ORBSLAM_y_max)
+    MSE_ORBSLAM_y_max = abs(odom->pose.pose.position.y - y );
 }
 
 
@@ -2396,6 +2455,11 @@ void SlamGMapping::Precision_Best_Pose(const nav_msgs::Odometry::ConstPtr& odom,
   MSE_best_odom_x   += flag_x; 
   MSE_best_odom_y   += flag_y; 
   MSE_best_odom_sum += flag_x + flag_y;
+
+  if ( abs(odom->pose.pose.position.x - x ) > MSE_best_odom_x_max)
+    MSE_best_odom_x_max = abs(odom->pose.pose.position.x - x );
+  if ( abs(odom->pose.pose.position.y - y ) > MSE_best_odom_y_max)
+    MSE_best_odom_y_max = abs(odom->pose.pose.position.y - y );
 }
 
 void SlamGMapping::Precision_Half_Pose(const nav_msgs::Odometry::ConstPtr& odom, double x, double y)
@@ -2409,6 +2473,11 @@ void SlamGMapping::Precision_Half_Pose(const nav_msgs::Odometry::ConstPtr& odom,
   MSE_half_odom_x   += flag_x; 
   MSE_half_odom_y   += flag_y; 
   MSE_half_odom_sum += flag_x + flag_y;
+
+  if ( abs(odom->pose.pose.position.x - x ) > MSE_half_odom_x_max)
+    MSE_half_odom_x_max = abs(odom->pose.pose.position.x - x );
+  if ( abs(odom->pose.pose.position.y - y ) > MSE_half_odom_y_max)
+    MSE_half_odom_y_max = abs(odom->pose.pose.position.y - y );
 }
 
 
@@ -2540,6 +2609,9 @@ void SlamGMapping::SaveParam(std::string file_path)
   logFile_ << "  mseX:  " + std::to_string(MSE_ORBSLAM_x);
   logFile_ << "  mseY:  " + std::to_string(MSE_ORBSLAM_y);
   logFile_ << "  mseS:  " + std::to_string(MSE_ORBSLAM_sum);
+  logFile_ << "\n";
+  logFile_ << "  Maxerror_x:  " + std::to_string(MSE_ORBSLAM_x_max);
+  logFile_ << "  Maxerror_y:  " + std::to_string(MSE_ORBSLAM_y_max);
   logFile_ << "\n\n";
 
   ///////   Save PLICP result   /////////////
@@ -2559,6 +2631,9 @@ void SlamGMapping::SaveParam(std::string file_path)
   logFile_ << "  mseX:  " + std::to_string(MSE_PLICP_x);
   logFile_ << "  mseY:  " + std::to_string(MSE_PLICP_y);
   logFile_ << "  mseS:  " + std::to_string(MSE_PLICP_sum);
+  logFile_ << "\n";
+  logFile_ << "  Maxerror_x:  " + std::to_string(MSE_PLICP_x_max);
+  logFile_ << "  Maxerror_y:  " + std::to_string(MSE_PLICP_y_max);
   logFile_ << "\n\n";
 
 
@@ -2661,6 +2736,9 @@ void SlamGMapping::SaveParam(std::string file_path)
   logFile_ << "  mseX:  " + std::to_string(MSE_best_odom_x);
   logFile_ << "  mseY:  " + std::to_string(MSE_best_odom_y);
   logFile_ << "  mseS:  " + std::to_string(MSE_best_odom_sum);
+  logFile_ << "\n";
+  logFile_ << "  Maxerror_x:  " + std::to_string(MSE_best_odom_x_max);
+  logFile_ << "  Maxerror_y:  " + std::to_string(MSE_best_odom_y_max);
   logFile_ << "\n\n";
 
   ///////   Save half weight result   /////////////
@@ -2684,6 +2762,9 @@ void SlamGMapping::SaveParam(std::string file_path)
   logFile_ << "  mseX:  " + std::to_string(MSE_half_odom_x);
   logFile_ << "  mseY:  " + std::to_string(MSE_half_odom_y);
   logFile_ << "  mseS:  " + std::to_string(MSE_half_odom_sum);
+  logFile_ << "\n";
+  logFile_ << "  Maxerror_x:  " + std::to_string(MSE_half_odom_x_max);
+  logFile_ << "  Maxerror_y:  " + std::to_string(MSE_half_odom_y_max);
   logFile_ << "\n\n";
 
   // close file stream
@@ -2785,6 +2866,12 @@ void SlamGMapping::SaveTrajectoryGraph_(std::string path)
     config["Rotate"]["PLICP"] = trajectory_PLICP_r;
     config["Rotate"]["real"] = trajectory_real_r;
   }
+
+  config["Hypothesis"]["ORB_x"] = save_orb_z_x;
+  config["Hypothesis"]["ORB_y"] = save_orb_z_y;
+  config["Hypothesis"]["PLICP_x"] = save_plicp_z_x;
+  config["Hypothesis"]["PLICP_y"] = save_plicp_z_y;
+
 
   std::string graph_log_path = path + "_log.yaml";
   std::ofstream fout(graph_log_path);
@@ -3723,7 +3810,7 @@ void SlamGMapping::SaveResidual(double curr_time)
 {
   if (sum_res < residual_sum)
     sum_res++;
-    
+
   ORB_res(count_res, 0) = orb_ukf.y_(0);
   ORB_res(count_res, 1) = orb_ukf.y_(1);
 
@@ -3742,9 +3829,9 @@ void SlamGMapping::HypothesisTesting()
 {
   VectorXd orb_avg = VectorXd::Zero(2);
   VectorXd plicp_avg = VectorXd::Zero(2);
-
-  int orb_crash_count_x = 0;
-  int orb_crash_count_y = 0;
+  ORB_crash   = false;
+  PLICP_crash = false;
+  both_crash = false;
 
   // count the sum of every residual
   for (int i=0; i<sum_res; i++)
@@ -3754,24 +3841,7 @@ void SlamGMapping::HypothesisTesting()
 
     plicp_avg(0) += PLICP_res(i, 0);
     plicp_avg(1) += PLICP_res(i, 1);
-
-    if (double(ORB_res(i, 0)) == 0.0)
-      orb_crash_count_x++;
-    if (double(ORB_res(i, 1)) == 0.0)
-      orb_crash_count_y++;
-
-    if (abs(PLICP_res(i, 0)) >= 0.8 || abs(PLICP_res(i, 1)) >= 0.8)
-    {
-      PLICP_crash = true;
-      ORB_weight(0) = 1.0;
-      ORB_weight(1) = 1.0;
-      PLICP_weight(0) = 0.0;
-      PLICP_weight(1) = 0.0;
-      std::cerr << "aaaaaaaaaaaaaaaaaaaaaaaa plicp crash aaaaaaaaaaaaaaaaaaaaaaaa" << std::endl;
-      std::cerr << "aaaaaaaaaaaaaaaaaaaaaaaa plicp crash aaaaaaaaaaaaaaaaaaaaaaaa" << std::endl;
-    }
   }
-
 
 
   // count the average of every residual
@@ -3807,45 +3877,133 @@ void SlamGMapping::HypothesisTesting()
 
   float sqrt_sum = sqrt(sum_res);
 
-  for (int i=0; i<sum_res; i++)
-  {
-    orb_z(0) += (ORB_res(i, 0) - orb_avg(0)) / (orb_std(0)/sqrt_sum);
-    orb_z(1) += (ORB_res(i, 1) - orb_avg(1)) / (orb_std(1)/sqrt_sum);
+  // for (int i=0; i<sum_res; i++)
+  // {
+  //   orb_z(0) += (ORB_res(i, 0) - orb_avg(0)) / (orb_std(0)/sqrt_sum);
+  //   orb_z(1) += (ORB_res(i, 1) - orb_avg(1)) / (orb_std(1)/sqrt_sum);
 
-    plicp_z(0) += (PLICP_res(i, 0) - plicp_avg(0)) / (plicp_std(0)/sqrt_sum);
-    plicp_z(1) += (PLICP_res(i, 1) - plicp_avg(1)) / (plicp_std(1)/sqrt_sum);
+  //   plicp_z(0) += (PLICP_res(i, 0) - plicp_avg(0)) / (plicp_std(0)/sqrt_sum);
+  //   plicp_z(1) += (PLICP_res(i, 1) - plicp_avg(1)) / (plicp_std(1)/sqrt_sum);
+  // }
+ 
+
+  orb_z(0) = (orb_ukf.y_(0) - orb_avg(0)) / (orb_std(0)/sqrt_sum-1);
+  orb_z(1) = (orb_ukf.y_(1) - orb_avg(1)) / (orb_std(1)/sqrt_sum-1);
+  plicp_z(0) = (plicp_ukf.y_(0) - plicp_avg(0)) / (plicp_std(0)/sqrt_sum-1);
+  plicp_z(1) = (plicp_ukf.y_(1) - plicp_avg(1)) / (plicp_std(1)/sqrt_sum-1);
+
+
+  if (isnan(orb_z(0)) || isinf(orb_z(0)))
+    orb_z(0) = 0.0;
+  if (isnan(orb_z(1)) || isinf(orb_z(1)))
+    orb_z(1) = 0.0;
+  if (isnan(plicp_z(0)) || isinf(plicp_z(0)))
+    plicp_z(0) = 0.0;
+  if (isnan(plicp_z(1)) || isinf(plicp_z(1)))
+    plicp_z(1) = 0.0;
+
+  save_orb_z_x.push_back(orb_z(0));
+  save_orb_z_y.push_back(orb_z(1));
+  save_plicp_z_x.push_back(plicp_z(0));
+  save_plicp_z_y.push_back(plicp_z(1));
+
+  // std::cerr << "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa" << std::endl;
+  // std::cerr << orb_z(0)  << "  "   << orb_z(1)  << std::endl;
+  // std::cerr << plicp_z(0)  << "  " << plicp_z(1) << std::endl;
+
+  if (abs(orb_ukf.y_(0) - plicp_ukf.y_(0)) > 0.05)
+  {
+    if (abs(orb_z(0)) > abs(plicp_z(0)))
+    {
+      PLICP_weight(0) = 1.0;
+      ORB_weight(0) = 0.0;
+
+      std::cerr << "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa" << std::endl;
+      std::cerr << "ORB x axis error" << std::endl;
+      ORB_crash = true;
+    }
+    else
+    {
+      PLICP_weight(0) = 0.0;
+      ORB_weight(0) = 1.0;
+      std::cerr << "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb" << std::endl;
+      std::cerr << "PLICP x axis error" << std::endl;
+      PLICP_crash = true;
+    }
+
+    std::cerr << orb_z(0)  << "  "   << plicp_z(0) << std::endl;
+    std::cerr << orb_ukf.y_(0)  << "  "   << plicp_ukf.y_(0) << std::endl;
   }
 
-    // orb_z(0) = (ORB_res(count_res, 0) - orb_avg(0)) / (orb_std(0));
-    // orb_z(1) = (ORB_res(count_res, 1) - orb_avg(1)) / (orb_std(1));
 
-    // plicp_z(0) = (PLICP_res(count_res, 0) - plicp_avg(0)) / (plicp_std(0));
-    // plicp_z(1) = (PLICP_res(count_res, 1) - plicp_avg(1)) / (plicp_std(1));
-
-    // std::cerr << "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa" << std::endl;
-    // std::cerr << "x (ORB - PLICP):  "  << orb_z(0) -  plicp_z(0)   << std::endl;
-    // std::cerr << "y (ORB - PLICP):  "  << orb_z(1) -  plicp_z(1) << std::endl;
-
-  if (orb_crash_count_x >= 3 || orb_crash_count_y >= 3)
+  if (abs(orb_ukf.y_(1) - plicp_ukf.y_(1)) > 0.05)
   {
-    ORB_crash ==  true;
-    ORB_weight(0) = 0.0;
-    ORB_weight(1) = 0.0;
-    PLICP_weight(0) = 1.0;
+    if (abs(orb_z(1)) > abs(plicp_z(1)))
+    {
+      PLICP_weight(1) = 1.0;
+      ORB_weight(1) = 0.0;
+      ORB_crash = true;
+
+      std::cerr << "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa" << std::endl;
+      std::cerr << "ORB y axis error" << std::endl;
+      std::cerr << orb_std(1) << "  " << plicp_std(1) << std::endl;
+      std::cerr << orb_ukf.y_(1) << "  " << plicp_ukf.y_(1) << std::endl;
+      std::cerr << orb_avg(1) << "  " << plicp_avg(1) << std::endl;
+    }
+    else
+    {
+      PLICP_weight(1) = 0.0;
+      ORB_weight(1) = 1.0;
+      std::cerr << "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb" << std::endl;
+      std::cerr << "PLICP y axis error" << std::endl;
+      PLICP_crash = true;
+    }
+
+    std::cerr << orb_z(1)  << "  "   << plicp_z(1) << std::endl;
+    std::cerr << orb_ukf.y_(1)  << "  "   << plicp_ukf.y_(1) << std::endl;
+  }
+
+  if (abs(orb_ukf.y_(1)) <= 0.000001 )
+  {
     PLICP_weight(1) = 1.0;
-    std::cerr << "aaaaaaaaaaaaaaaaaaaaaaaa orb crash aaaaaaaaaaaaaaaaaaaaaaaa" << std::endl;
-    std::cerr << "aaaaaaaaaaaaaaaaaaaaaaaa orb crash aaaaaaaaaaaaaaaaaaaaaaaa" << std::endl;
+    ORB_weight(1) = 0.0;
+  }
+  if (abs(orb_ukf.y_(0)) <= 0.000001)
+  {
+    PLICP_weight(0) = 1.0;
+    ORB_weight(0) = 0.0;
   }
 
-  if ( ORB_crash ==  false && PLICP_crash == false && sum_res == residual_sum )
-  {
-    AdjustWeight(orb_z, plicp_z, 0);
-    AdjustWeight(orb_z, plicp_z, 1);
-  }
+  // if (abs(orb_ukf.y_(1)) <= 0.000001 )
+  // {
+  //   PLICP_weight(1) = 1.0;
+  //   ORB_weight(1) = 0.0;
+  //   if (PLICP_crash == true)
+  //   {
+  //     both_crash = true;
+  //     PLICP_weight(0) = 0.0;
+  //     ORB_weight(0) = 0.0;
+  //     PLICP_weight(1) = 0.0;
+  //     ORB_weight(1) = 0.0;
+  //   }
+  // }
+  // if (abs(orb_ukf.y_(0)) <= 0.000001)
+  // {
+  //   PLICP_weight(0) = 1.0;
+  //   ORB_weight(0) = 0.0;
+  //   if (PLICP_crash == true)
+  //   {
+  //     both_crash = true;
+  //     PLICP_weight(0) = 0.0;
+  //     ORB_weight(0) = 0.0;
+  //     PLICP_weight(1) = 0.0;
+  //     ORB_weight(1) = 0.0;
+  //   }
+  // }
 
   count_res++;
 
-  if (count_res > 9)
+  if (count_res >= residual_sum)
     count_res = 0;
 
 }
