@@ -130,42 +130,42 @@ class Trajectory():
             self.point_residual_plicp[2].append( _data['Residual']['time'][i] )
 
         ######### save weight of orb ###########
-        self.weight_orb.append([])
-        self.weight_orb.append([])
-        self.weight_orb.append([])
-        for i in range(0, len(_data['Weight_ORB']['x'])):
-            self.weight_orb[0].append( _data['Weight_ORB']['x'][i] )
-            self.weight_orb[1].append( _data['Weight_ORB']['y'][i] )
-            self.weight_orb[2].append( _data['Residual']['time'][i] )
+        # self.weight_orb.append([])
+        # self.weight_orb.append([])
+        # self.weight_orb.append([])
+        # for i in range(0, len(_data['Weight_ORB']['x'])):
+        #     self.weight_orb[0].append( _data['Weight_ORB']['x'][i] )
+        #     self.weight_orb[1].append( _data['Weight_ORB']['y'][i] )
+        #     self.weight_orb[2].append( _data['Residual']['time'][i] )
 
-        ######### save weight of plicp ###########
-        self.weight_plicp.append([])
-        self.weight_plicp.append([])
-        self.weight_plicp.append([])
-        for i in range(0, len(_data['Weight_PLICP']['x'])):
-            self.weight_plicp[0].append( _data['Weight_PLICP']['x'][i] )
-            self.weight_plicp[1].append( _data['Weight_PLICP']['y'][i] )
-            self.weight_plicp[2].append( _data['Residual']['time'][i] )
-
-
-        ######### save z of hypothesis of orb ###########
-        self.hypo_orb.append([])
-        self.hypo_orb.append([])
-        self.hypo_orb.append([])
-        for i in range(0, len(_data['Hypothesis']['ORB_x'])):
-            self.hypo_orb[0].append( _data['Hypothesis']['ORB_x'][i])
-            self.hypo_orb[1].append( _data['Hypothesis']['ORB_y'][i])
-            self.hypo_orb[2].append( _data['Residual']['time'][i] )
+        # ######### save weight of plicp ###########
+        # self.weight_plicp.append([])
+        # self.weight_plicp.append([])
+        # self.weight_plicp.append([])
+        # for i in range(0, len(_data['Weight_PLICP']['x'])):
+        #     self.weight_plicp[0].append( _data['Weight_PLICP']['x'][i] )
+        #     self.weight_plicp[1].append( _data['Weight_PLICP']['y'][i] )
+        #     self.weight_plicp[2].append( _data['Residual']['time'][i] )
 
 
-        ######### save z of hypothesis of plicp ###########
-        self.hypo_plicp.append([])
-        self.hypo_plicp.append([])
-        self.hypo_plicp.append([])
-        for i in range(0, len(_data['Hypothesis']['PLICP_x'])):
-            self.hypo_plicp[0].append( _data['Hypothesis']['PLICP_x'][i])
-            self.hypo_plicp[1].append( _data['Hypothesis']['PLICP_y'][i])
-            self.hypo_plicp[2].append( _data['Residual']['time'][i] )
+        # ######### save z of hypothesis of orb ###########
+        # self.hypo_orb.append([])
+        # self.hypo_orb.append([])
+        # self.hypo_orb.append([])
+        # for i in range(0, len(_data['Hypothesis']['ORB_x'])):
+        #     self.hypo_orb[0].append( _data['Hypothesis']['ORB_x'][i])
+        #     self.hypo_orb[1].append( _data['Hypothesis']['ORB_y'][i])
+        #     self.hypo_orb[2].append( _data['Residual']['time'][i] )
+
+
+        # ######### save z of hypothesis of plicp ###########
+        # self.hypo_plicp.append([])
+        # self.hypo_plicp.append([])
+        # self.hypo_plicp.append([])
+        # for i in range(0, len(_data['Hypothesis']['PLICP_x'])):
+        #     self.hypo_plicp[0].append( _data['Hypothesis']['PLICP_x'][i])
+        #     self.hypo_plicp[1].append( _data['Hypothesis']['PLICP_y'][i])
+        #     self.hypo_plicp[2].append( _data['Residual']['time'][i] )
 
 
 
@@ -397,7 +397,7 @@ if __name__=='__main__':
     # path = '/home/ron/work/src/all_process/data/Trajectory'
     # file_name = '2023_05_26_12:04:44'
 
-    name = '2023_06_10_23:37:53'
+    name = 'orb'
     path = '/home/ron/work/src/all_process/data/realistic_test/' + name
     file_name = ''
 
@@ -405,7 +405,7 @@ if __name__=='__main__':
     show_list = ['PLICP', 'ORB', 'real','Our_method']
     # show_list = ['PLICP', 'ORB']
     # show_list = ['PLICP', 'UKF_PLICP']
-    # show_list = ['ORB', 'UKF_ORB']
+    show_list = ['ORB', 'UKF_ORB']
 
     # show_list = ['PLICP', 'ORB', 'UKF_PLICP', 'UKF_ORB', 'real', 'Our_method', 'Half_w']
     # show_list = ['PLICP', 'ORB', 'real']

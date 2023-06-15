@@ -3885,12 +3885,12 @@ void SlamGMapping::HypothesisTesting()
   //   plicp_z(0) += (PLICP_res(i, 0) - plicp_avg(0)) / (plicp_std(0)/sqrt_sum);
   //   plicp_z(1) += (PLICP_res(i, 1) - plicp_avg(1)) / (plicp_std(1)/sqrt_sum);
   // }
- 
 
-  orb_z(0) = (orb_ukf.y_(0) - orb_avg(0)) / (orb_std(0)/sqrt_sum-1);
-  orb_z(1) = (orb_ukf.y_(1) - orb_avg(1)) / (orb_std(1)/sqrt_sum-1);
-  plicp_z(0) = (plicp_ukf.y_(0) - plicp_avg(0)) / (plicp_std(0)/sqrt_sum-1);
-  plicp_z(1) = (plicp_ukf.y_(1) - plicp_avg(1)) / (plicp_std(1)/sqrt_sum-1);
+
+  orb_z(0) = (orb_ukf.y_(0) - orb_avg(0)) / (orb_std(0)/sqrt_sum);
+  orb_z(1) = (orb_ukf.y_(1) - orb_avg(1)) / (orb_std(1)/sqrt_sum);
+  plicp_z(0) = (plicp_ukf.y_(0) - plicp_avg(0)) / (plicp_std(0)/sqrt_sum);
+  plicp_z(1) = (plicp_ukf.y_(1) - plicp_avg(1)) / (plicp_std(1)/sqrt_sum);
 
 
   if (isnan(orb_z(0)) || isinf(orb_z(0)))
