@@ -14,7 +14,6 @@
     <!-- open launch: gmapping -->
     <!-- <include file="$(find turtlebot3_slam)/launch/turtlebot3_slam.launch">  </include> -->
 
-
     <arg
     name="path_to_vocabulary"
     default="$(find orbslam2_ros)/data/ORBvoc.txt"

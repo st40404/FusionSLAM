@@ -632,6 +632,11 @@ SlamGMapping::initMapper(const sensor_msgs::LaserScan& scan)
   save_last_res_plicp.x = 0.0;
   save_last_res_plicp.y = 0.0;
 
+  time_sum = 0;
+  time_count = 0;
+
+
+
   /////////////////////////////////////////////////////////////////////////
 
   gsp_->setMatchingParameters(maxUrange_, maxRange_, sigma_,
@@ -786,6 +791,10 @@ SlamGMapping::ScanCallback(const sensor_msgs::LaserScan::ConstPtr& scan, GMappin
   // compute PL-ICP compute the transform
   ScanMatchWithPLICP(curr_ldp_scan, scan->header.stamp);
 
+  // std::chrono::duration<double> time_sum;
+  // int time_count;
+
+
   odom_last.x = gmap_pose.x;
   odom_last.y = gmap_pose.y;
   odom_last.theta = gmap_pose.theta;
@@ -862,6 +871,7 @@ void SlamGMapping::laserCallback(const sensor_msgs::LaserScan::ConstPtr& scan, c
     GMapping::OrientedPoint odom_pose;
 
 
+
     if(addScan(*scan, odom_pose))
     {
       // std::chrono::steady_clock::time_point end_time = std::chrono::steady_clock::now();
@@ -873,9 +883,9 @@ void SlamGMapping::laserCallback(const sensor_msgs::LaserScan::ConstPtr& scan, c
       GMapping::OrientedPoint mpose = gsp_->getParticles()[gsp_->getBestParticleIndex()].pose;
 
 
-      std::cerr << "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa" << std::endl;
-      std::cerr << mpose.x << "  " << mpose.y << "  " << mpose.theta*180/M_PI << std::endl;
-      std::cerr << odom_pose.x << "  " << odom_pose.y << "  " << odom_pose.theta*180/M_PI << std::endl;
+      // std::cerr << "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa" << std::endl;
+      // std::cerr << mpose.x << "  " << mpose.y << "  " << mpose.theta*180/M_PI << std::endl;
+      // std::cerr << odom_pose.x << "  " << odom_pose.y << "  " << odom_pose.theta*180/M_PI << std::endl;
       // std::cerr << odom->pose.pose.position.x << "  " << odom->pose.pose.position.y << " " << odom->pose.pose.position.z << std::endl;
 
 
@@ -1273,6 +1283,17 @@ void SlamGMapping::laserCallback(const sensor_msgs::LaserScan::ConstPtr& scan, c
 ///////    PLICP + ORB by PPO
   else if (mymethod == 3)
   {
+    // std::chrono::steady_clock::time_point start_time = std::chrono::steady_clock::now();
+
+    // std::chrono::steady_clock::time_point end_time = std::chrono::steady_clock::now();
+    // std::chrono::duration<double> time_used = std::chrono::duration_cast<std::chrono::duration<double>>(end_time - start_time);
+
+    // time_sum += time_used.count();
+    // time_count++;
+    
+    // std::cerr << "\naaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa: " << time_used.count() << " s " << std::endl;
+    // std::cerr << time_sum << "  " << time_used.count() << "  "  << time_count << "  " <<  time_sum/time_count << std::endl;
+
     srv.request.sec = scan->header.stamp.sec;
     srv.request.nsec = scan->header.stamp.nsec;
 
@@ -1589,13 +1610,13 @@ void SlamGMapping::laserCallback(const sensor_msgs::LaserScan::ConstPtr& scan, c
         // std::cerr << best_pose.x << "  " << best_pose.y << " " << best_pose.theta << std::endl;
 
 
-
         // laser_to_map : lidar pose in map frame
         // odom_to_laser : lidar pose in odom frame
-        tf::Transform laser_to_map = tf::Transform(tf::createQuaternionFromRPY(0, 0, tf::getYaw(base_in_map_.getRotation())), tf::Vector3(base_in_map_.getOrigin().getX(), base_in_map_.getOrigin().getY(), 0.0)).inverse();
-        // tf::Transform laser_to_map = tf::Transform(tf::createQuaternionFromRPY(0, 0, tf::getYaw(Ron_pose.getRotation())), tf::Vector3(Ron_pose.getOrigin().getX(), Ron_pose.getOrigin().getY(), 0.0)).inverse();
+        // tf::Transform laser_to_map = tf::Transform(tf::createQuaternionFromRPY(0, 0, tf::getYaw(base_in_map_.getRotation())), tf::Vector3(base_in_map_.getOrigin().getX(), base_in_map_.getOrigin().getY(), 0.0)).inverse();
+        tf::Transform laser_to_map = tf::Transform(tf::createQuaternionFromRPY(0, 0, tf::getYaw(Ron_pose.getRotation())), tf::Vector3(Ron_pose.getOrigin().getX(), Ron_pose.getOrigin().getY(), 0.0)).inverse();
         // tf::Transform laser_to_map = tf::Transform(tf::createQuaternionFromRPY(0, 0, best_pose.theta), tf::Vector3(best_pose.x, best_pose.y, 0.0)).inverse();
         tf::Transform odom_to_laser = tf::Transform(tf::createQuaternionFromRPY(0, 0, odom_pose.theta), tf::Vector3(odom_pose.x, odom_pose.y, 0.0));
+
 
         // map_to_odom_ : compute relationship between odom frame and map frame
         map_to_odom_mutex_.lock();
@@ -2067,8 +2088,8 @@ void SlamGMapping::ScanMatchWithPLICP(LDP &curr_ldp_scan, const ros::Time &time)
     CreateTfFromXYTheta(odom_last.x, odom_last.y, odom_last.theta, prediction_change);
     prediction_change = prediction_change * (base_in_map_ * base_in_map_keyframe_.inverse());
 
-    // input_.first_guess[0] = sqrt(odom_last.x*odom_last.x + odom_last.y*odom_last.y);
-    input_.first_guess[0] = 0.0;
+    input_.first_guess[0] = sqrt(odom_last.x*odom_last.x + odom_last.y*odom_last.y);
+    // input_.first_guess[0] = 0.0;
     input_.first_guess[1] = 0.0;
     input_.first_guess[2] = tf::getYaw(prediction_change.getRotation());
 

@@ -119,7 +119,8 @@ public:
     // if you use ros_bag, rosbag = 1 : using rosbag, rosbag = 2 : using in real world
     int rosbag = 1;
 
-
+    double time_sum;
+    int time_count;
     ORB_SLAM2::System* mpSLAM;
 };
 
@@ -525,5 +526,4 @@ void ImageGrabber::GrabRGBD(const sensor_msgs::ImageConstPtr& msgRGB,const senso
     // publish point cloud and camera pose
     // PublishPointcloud();
     PublishCamPose();
-
 }

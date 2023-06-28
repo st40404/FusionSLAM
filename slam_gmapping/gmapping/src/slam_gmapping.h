@@ -157,7 +157,8 @@ class SlamGMapping
     bool NewKeyframeNeeded(const tf::Transform &d);
     bool GetBaseToLaserTf(const std::string &frame_id);
 
-    //
+    double time_sum;
+    int time_count;
 
     // subscribe ORB pose
     ros::Subscriber sub;
