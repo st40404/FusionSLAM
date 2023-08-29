@@ -1,16 +1,19 @@
 # FusionSLAM
 
-Play sensor fusion on tb3 in docker(melodic)
+Play sensor fusion on tb3 in docker(melodic), you need to build docker first
+   - go to docker package
+   ```bash
+   $ chmod +x build.sh
+   $ ./buils.sh
+   $ chmod +x run.sh
+   $ ./run.sh
+   ```
 
 <!-- TOC -->
 - [Platform](#Platform)
 - [ORBSLAM2](#ORBSLAM2)
 - [Setting](#Setting)
-- [Permission](#Permission)
-- [Tb3_driver](#Tb3_driver)
-- [UTM-30LX_driver](#UTM-30LX_driver)
-- [Slam](#Slam)
-- [Navigation](#Navigation)
+- [Execute](#Execute)
 <!-- /TOC -->
 
 ## Platform
