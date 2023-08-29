@@ -52,6 +52,7 @@ class Trajectory():
         self.point_plicp.append([])
         self.point_plicp.append([])
         for i in range(0, len(_data['Trajectory']['PLICP'])/3):
+        # for i in range(122,143):
             self.point_plicp[0].append( _data['Trajectory']['PLICP'][3*i] )
             self.point_plicp[1].append( _data['Trajectory']['PLICP'][3*i+1] )
             self.point_plicp[2].append( _data['Trajectory']['PLICP'][3*i+2] )
@@ -61,6 +62,7 @@ class Trajectory():
         self.point_orb.append([])
         self.point_orb.append([])
         for i in range(0, len(_data['Trajectory']['ORB'])/3):
+        # for i in range(122,143):
             # if (i%2 == 1):
             self.point_orb[0].append( _data['Trajectory']['ORB'][3*i] )
             self.point_orb[1].append( _data['Trajectory']['ORB'][3*i+1] )
@@ -71,6 +73,7 @@ class Trajectory():
         self.point_ukf_plicp.append([])
         self.point_ukf_plicp.append([])
         for i in range(0, len(_data['Trajectory']['UKF_PLICP'])/3):
+        # for i in range(41, 47):
             self.point_ukf_plicp[0].append( _data['Trajectory']['UKF_PLICP'][3*i] )
             self.point_ukf_plicp[1].append( _data['Trajectory']['UKF_PLICP'][3*i+1] )
             self.point_ukf_plicp[2].append( _data['Trajectory']['UKF_PLICP'][3*i+2] )
@@ -80,6 +83,7 @@ class Trajectory():
         self.point_ukf_orb.append([])
         self.point_ukf_orb.append([])
         for i in range(0, len(_data['Trajectory']['UKF_ORB'])/3):
+        # for i in range(400, 408):
             self.point_ukf_orb[0].append( _data['Trajectory']['UKF_ORB'][3*i] )
             self.point_ukf_orb[1].append( _data['Trajectory']['UKF_ORB'][3*i+1] )
             self.point_ukf_orb[2].append( _data['Trajectory']['UKF_ORB'][3*i+2] )
@@ -89,6 +93,7 @@ class Trajectory():
         self.point_real.append([])
         self.point_real.append([])
         for i in range(0, len(_data['Trajectory']['real'])/3):
+        # for i in range(122,143):
             self.point_real[0].append( _data['Trajectory']['real'][3*i] )
             self.point_real[1].append( _data['Trajectory']['real'][3*i+1] )
             self.point_real[2].append( _data['Trajectory']['real'][3*i+2] )
@@ -98,6 +103,7 @@ class Trajectory():
         self.point_our_method.append([])
         self.point_our_method.append([])
         for i in range(0, len(_data['Trajectory']['Our_method'])/3):
+        # for i in range(122,143):
             self.point_our_method[0].append( _data['Trajectory']['Our_method'][3*i] )
             self.point_our_method[1].append( _data['Trajectory']['Our_method'][3*i+1] )
             self.point_our_method[2].append( _data['Trajectory']['Our_method'][3*i+2] )
@@ -183,7 +189,7 @@ class Trajectory():
             elif (i == 'real'):
                 self.DrawAll(self.point_real, "black", 'ground_trust')
             elif (i == 'Our_method'):
-                self.DrawAll(self.point_our_method, "green", 'Our_method')
+                self.DrawAll(self.point_our_method, "black", 'Our_method')
             elif (i == 'Half_w'):
                 self.DrawAll(self.point_half_weight, "pink", 'half_weight')
 
@@ -210,7 +216,7 @@ class Trajectory():
             elif (i == 'real'):
                 self.DrawX(self.point_real, "black", 'ground_trust')
             elif (i == 'Our_method'):
-                self.DrawX(self.point_our_method, "green", 'Our_method')
+                self.DrawX(self.point_our_method, "black", 'Our_method')
             elif (i == 'Half_w'):
                 self.DrawX(self.point_half_weight, "pink", 'half_weight')
 
@@ -235,7 +241,7 @@ class Trajectory():
             elif (i == 'real'):
                 self.DrawY(self.point_real, "black", 'ground_trust')
             elif (i == 'Our_method'):
-                self.DrawY(self.point_our_method, "green", 'Our_method')
+                self.DrawY(self.point_our_method, "black", 'Our_method')
             elif (i == 'Half_w'):
                 self.DrawY(self.point_half_weight, "pink", 'half_weight')
 
@@ -260,13 +266,13 @@ class Trajectory():
         self.DrawRes(self.point_residual_orb[1], self.point_residual_orb[2], 'ORB', "Y")
 
     def DrawAll(self, _data, _color, _label):
-        plt.plot(_data[0], _data[1], color = _color, linewidth ='1', label = _label)
+        plt.plot(_data[0], _data[1], color = _color, linewidth ='1', label = _label, marker='o')
 
     def DrawX(self, _data, _color, _label):
-        plt.plot(_data[2], _data[0], color = _color, linewidth ='1', label = _label)
+        plt.plot(_data[2], _data[0], color = _color, linewidth ='1', label = _label, marker='o')
 
     def DrawY(self, _data, _color, _label):
-        plt.plot(_data[2], _data[1], color = _color, linewidth ='1', label = _label)
+        plt.plot(_data[2], _data[1], color = _color, linewidth ='1', label = _label, marker='o')
 
     def DrawRes(self, x_lab, time, _label, _ylabel):
         plt.title(_ylabel + ' Axis Residual of ' + _label)
@@ -397,13 +403,21 @@ if __name__=='__main__':
     # path = '/home/ron/work/src/all_process/data/Trajectory'
     # file_name = '2023_05_26_12:04:44'
 
-    name = '2023_06_22_15:13:12'
+    name = 'real_0828'
     path = '/home/ron/work/src/all_process/data/realistic_test/' + name
     file_name = ''
 
+    # name = '2023_06_07_02_21_57'
+    # path = '/home/ron/work/src/all_process/data/Best_result/best_crash/' + name
+    # file_name = ''
+
+
     all_list = ['PLICP', 'ORB', 'UKF_PLICP', 'UKF_ORB', 'real', 'Our_method', 'Half_w']
-    show_list = ['PLICP', 'ORB', 'real','Our_method']
-    # show_list = ['PLICP', 'ORB','Our_method']
+    # show_list = ['PLICP', 'ORB', 'real','Our_method']
+    # show_list = ['ORB', 'UKF_ORB']
+
+
+    show_list = ['PLICP', 'ORB','Our_method']
     # show_list = ['PLICP', 'ORB']
     # show_list = ['PLICP', 'UKF_PLICP']
     # show_list = ['ORB', 'UKF_ORB']
