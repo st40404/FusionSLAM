@@ -42,6 +42,8 @@ class Trajectory():
         self.hypo_orb = []
         self.hypo_plicp = []
 
+        self.hypo_diff = []
+
 # Generate_Graph
     def LoadTrajec(self):
         with open( self.log_path + '.yaml', 'r') as f:
@@ -172,6 +174,16 @@ class Trajectory():
             self.hypo_plicp[0].append( _data['Hypothesis']['PLICP_x'][i])
             self.hypo_plicp[1].append( _data['Hypothesis']['PLICP_y'][i])
             self.hypo_plicp[2].append( _data['Residual']['time'][i] )
+
+        ######### save z of hypothesis difference(PLICP-ORB) ###########
+        self.hypo_diff.append([])
+        self.hypo_diff.append([])
+        self.hypo_diff.append([])
+        for i in range(0, len(_data['Hypothesis']['PLICP_x'])):
+            self.hypo_diff[0].append( abs(_data['Hypothesis']['PLICP_x'][i] - _data['Hypothesis']['ORB_x'][i]))
+            self.hypo_diff[1].append( abs(_data['Hypothesis']['PLICP_y'][i] - _data['Hypothesis']['ORB_y'][i]))
+            self.hypo_diff[2].append( _data['Residual']['time'][i] )
+
 
 
 
@@ -362,6 +374,9 @@ class Trajectory():
         self.DrawZ(self.hypo_plicp[2], self.hypo_plicp[0], "PLICP_x")
         self.DrawZ(self.hypo_plicp[2], self.hypo_plicp[1], "PLICP_y")
 
+        self.DrawZ(self.hypo_plicp[2], self.hypo_diff[0], "difference of x")
+        self.DrawZ(self.hypo_plicp[2], self.hypo_diff[1], "difference of y")
+
     def DrawZ(self, x, y, _ylabel):
         plt.plot(x, y, color = 'red', linewidth ='1')
         plt.title('Hypothesis z of ' + _ylabel)
@@ -403,13 +418,17 @@ if __name__=='__main__':
     # path = '/home/ron/work/src/all_process/data/Trajectory'
     # file_name = '2023_05_26_12:04:44'
 
-    name = 'real_0828'
-    path = '/home/ron/work/src/all_process/data/realistic_test/' + name
-    file_name = ''
+    # name = 'real_0828'
+    # path = '/home/ron/work/src/all_process/data/realistic_test/' + name
+    # file_name = ''
 
     # name = '2023_06_07_02_21_57'
     # path = '/home/ron/work/src/all_process/data/Best_result/best_crash/' + name
     # file_name = ''
+
+    name = '2023_06_07_02:21:57(2)'
+    path = '/home/ron/work/src/all_process/data/realistic_test/crash_result/ppo/plicp/best/' + name
+    file_name = ''
 
 
     all_list = ['PLICP', 'ORB', 'UKF_PLICP', 'UKF_ORB', 'real', 'Our_method', 'Half_w']
